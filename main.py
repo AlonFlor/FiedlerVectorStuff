@@ -2,11 +2,12 @@ import numpy as np
 from scipy import sparse
 import time
 import os
+import subprocess
 
 models_folder = os.path.join("..","models")
 
-def read_PLY_file(model_name):
-    '''read PLY file'''
+def read_data_file(model_name):
+    '''read data file'''
     model_path = os.path.join(models_folder,model_name)
     model_file = open(model_path, "r")
     model_data = []
@@ -15,7 +16,7 @@ def read_PLY_file(model_name):
     model_file.close()
     return model_data
 
-def write_PLY_file(model_name, nodes, face_data, resort_indices):
+def write_PLY_file(model_name, nodes, face_data, vect):#resort_indices):
     '''write a PLY file with colors'''
 
     header = f"ply\nformat ascii 1.0\nelement vertex {len(nodes)}\nproperty float x\nproperty float y\nproperty float z\n" + \
@@ -23,10 +24,11 @@ def write_PLY_file(model_name, nodes, face_data, resort_indices):
              f"element face {len(face_data)}\n" + \
              "property list uchar int vertex_indices\nend_header\n"
     vec_data_str = ""
-    resort_indices_normed = resort_indices / resort_indices.shape[0]
+    #resort_indices_normed = resort_indices / resort_indices.shape[0]
     for i,node in enumerate(nodes):
+        color = int(np.round(255 * vect[i]))
         #color = int(np.round(255 * resort_indices_normed[i]))
-        color = int(np.round(255/5 * np.round(resort_indices_normed[i]*5)))
+        #color = int(np.round(255/5 * np.round(resort_indices_normed[i]*5)))
         #color = 255 * (0 if resort_indices_normed[i]<0.5 else 1)
         vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + " " + str(color) + " " + str(color) + " 255\n"
     face_data_str = ""
@@ -39,6 +41,23 @@ def write_PLY_file(model_name, nodes, face_data, resort_indices):
     data_file.write(string_to_write)
     data_file.close()
 
+
+def read_numerical_csv_file(file_path, num_type=float):
+    file = open(file_path)
+    data_raw = []
+    for line in file:
+        data_raw.append(line.strip().split(","))
+    data = []
+    for line in data_raw[1:]:
+        line_data = []
+        for item in line:
+            line_data.append(num_type(item))
+        data.append(line_data)
+    file.close()
+    return np.array(data)
+
+
+
 class Node:
     def __init__(self, location):
         self.location = np.array(location)
@@ -46,7 +65,7 @@ class Node:
 
 def extract_model(model_name):
     nodes = []
-    model_data = read_PLY_file(model_name)
+    model_data = read_data_file(model_name)
     face_data = []
 
     #extract the data
@@ -114,8 +133,6 @@ def extract_model(model_name):
     return nodes, face_data
 
 
-
-
 def construct_Laplacian(nodes):
     '''construct graph Laplacian'''
     N = len(nodes)
@@ -132,18 +149,53 @@ def construct_Laplacian(nodes):
         L[i,i] = node_sum
     return sparse.csr_matrix(L)
 
-model_name = "bun_zipper.ply"#"dragon_vrip.ply"#
+
+def get_Fiedler_vector_libgl(nodes, face_data):
+    #set up the nodes and faces for libgl
+    vectors_string = ""
+    for node in nodes:
+        vectors_string += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+    data_file = open("vectors.txt", "w")
+    data_file.write(vectors_string)
+    data_file.close()
+    faces_string = ""
+    for face_data_list in face_data:
+        faces_string += str(face_data_list[0]) + " " + str(face_data_list[1]) + " " + str(face_data_list[2]) + "\n"
+    data_file = open("faces.txt", "w")
+    data_file.write(faces_string)
+    data_file.close()
+
+    #call the libgl code
+    command_str = "./stuff"
+    process = subprocess.Popen(command_str, shell=True, stdout=subprocess.PIPE)
+    process.wait()
+
+    #read the csv file returned
+    data = read_numerical_csv_file("Fiedler.csv")
+    return data.reshape((data.shape[0]))
+
+
+model_name = "bun_zipper.ply"#"Armadillo.ply"#dragon_vrip.ply"#
 nodes, face_data = extract_model(model_name)       #extract the model from the PLY file
-L = construct_Laplacian(nodes)          #construct graph Laplacian
+Fiedler_vector = get_Fiedler_vector_libgl(nodes, face_data)
+print(len(nodes))
+print(Fiedler_vector.shape)
+print(Fiedler_vector)
+#L = construct_Laplacian(nodes)          #construct graph Laplacian
+#print(L)
 #L_explicit = L.toarray()
 #print("L-L.T\n",L_explicit-L_explicit.T)
-print()
-W, V = sparse.linalg.eigsh(L, k=2, which="SM")  #extract Fiedler vector
-print(W, V.T)
+#print("\nextract Fiedler vector")
+#W, V = sparse.linalg.eigsh(L, k=2, which="SM")  #extract Fiedler vector
+#print(W, "\n", V.T)
 #print(np.matmul(L_explicit,V[:,0]))
-resort_indices = np.argsort(V[:,1])     #get ordering from Fiedler vector
-print(resort_indices)
-write_PLY_file(model_name, nodes, face_data, resort_indices)
+#resort_indices = np.argsort(V[:,1])     #get ordering from Fiedler vector
+#resort_indices = np.argsort(Fiedler_vector)     #get ordering from Fiedler vector
+#print(resort_indices)
+#Fiedler_vector = V[:,1]
+Fiedler_vector = (Fiedler_vector - min(Fiedler_vector)) / (max(Fiedler_vector) - min(Fiedler_vector))
+write_PLY_file(model_name, nodes, face_data, Fiedler_vector)#resort_indices)
+
 
 
 
