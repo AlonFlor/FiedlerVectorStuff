@@ -16,7 +16,7 @@ def read_data_file(model_name):
     model_file.close()
     return model_data
 
-def write_PLY_file(model_name, nodes, face_data, vect):#resort_indices):
+def write_PLY_file(model_name, nodes, face_data, vect, contour=False):
     '''write a PLY file with colors'''
 
     header = f"ply\nformat ascii 1.0\nelement vertex {len(nodes)}\nproperty float x\nproperty float y\nproperty float z\n" + \
@@ -24,9 +24,10 @@ def write_PLY_file(model_name, nodes, face_data, vect):#resort_indices):
              f"element face {len(face_data)}\n" + \
              "property list uchar int vertex_indices\nend_header\n"
     vec_data_str = ""
-    #resort_indices_normed = resort_indices / resort_indices.shape[0]
     for i,node in enumerate(nodes):
         color = int(np.round(255 * vect[i]))
+        if contour:
+            color = 255 if (int(np.round(255 * vect[i])) % 10 > 5) else 0
         #color = int(np.round(255 * resort_indices_normed[i]))
         #color = int(np.round(255/5 * np.round(resort_indices_normed[i]*5)))
         #color = 255 * (0 if resort_indices_normed[i]<0.5 else 1)
@@ -40,6 +41,29 @@ def write_PLY_file(model_name, nodes, face_data, vect):#resort_indices):
     data_file = open(model_name, "w")
     data_file.write(string_to_write)
     data_file.close()
+
+def write_basic_PLY_file(model_name, nodes, face_data):
+    '''write a PLY file with colors'''
+
+    header = f"ply\nformat ascii 1.0\nelement vertex {len(nodes)}\nproperty float x\nproperty float y\nproperty float z\n" + \
+             f"element face {len(face_data)}\n" + \
+             "property list uchar int vertex_indices\nend_header\n"
+    vec_data_str = ""
+    for i,node in enumerate(nodes):
+        #color = int(np.round(255 * resort_indices_normed[i]))
+        #color = int(np.round(255/5 * np.round(resort_indices_normed[i]*5)))
+        #color = 255 * (0 if resort_indices_normed[i]<0.5 else 1)
+        vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+    face_data_str = ""
+    for face_datum in face_data:
+        face_data_str += "3 " + str(face_datum[0]) + " " + str(face_datum[1]) + " " + str(face_datum[2]) + "\n"
+
+    string_to_write = header + vec_data_str + face_data_str[:-1]
+
+    data_file = open(model_name, "w")
+    data_file.write(string_to_write)
+    data_file.close()
+
 
 
 def read_numerical_csv_file(file_path, num_type=float):
@@ -144,7 +168,7 @@ def construct_Laplacian(nodes):
         for j in node.connections:
             neighbor = nodes[j]
             #adjusted_neighbor_location = neighbor.location*np.array([0.9,1.,0.95])
-            L[i,j] = -1./np.linalg.norm(node.location - neighbor.location)#(adjusted_location - adjusted_neighbor_location)#
+            L[i,j] = -1.#/np.linalg.norm(node.location - neighbor.location)#(adjusted_location - adjusted_neighbor_location)#
             node_sum -= L[i,j]
         L[i,i] = node_sum
     return sparse.csr_matrix(L)
@@ -175,26 +199,39 @@ def get_Fiedler_vector_libgl(nodes, face_data):
     return data.reshape((data.shape[0]))
 
 
-model_name = "bun_zipper.ply"#"Armadillo.ply"#dragon_vrip.ply"#
+model_name = "dragon_vrip_res3_connected.ply"#"Armadillo_digital.ply"#"bun_connected.ply"#
 nodes, face_data = extract_model(model_name)       #extract the model from the PLY file
-Fiedler_vector = get_Fiedler_vector_libgl(nodes, face_data)
-print(len(nodes))
-print(Fiedler_vector.shape)
-print(Fiedler_vector)
-#L = construct_Laplacian(nodes)          #construct graph Laplacian
+
+#write_basic_PLY_file(model_name, nodes, face_data)
+#exit()
+
+#Fiedler_vector = get_Fiedler_vector_libgl(nodes, face_data)
+
+#print(len(nodes))
+#print(Fiedler_vector.shape)
+#print(Fiedler_vector)
+L = construct_Laplacian(nodes)          #construct graph Laplacian
 #print(L)
 #L_explicit = L.toarray()
 #print("L-L.T\n",L_explicit-L_explicit.T)
 #print("\nextract Fiedler vector")
-#W, V = sparse.linalg.eigsh(L, k=2, which="SM")  #extract Fiedler vector
-#print(W, "\n", V.T)
+W, V = sparse.linalg.eigsh(L, k=2, which="SM")  #extract Fiedler vector
+print(W, "\n", V.T)
 #print(np.matmul(L_explicit,V[:,0]))
-#resort_indices = np.argsort(V[:,1])     #get ordering from Fiedler vector
-#resort_indices = np.argsort(Fiedler_vector)     #get ordering from Fiedler vector
-#print(resort_indices)
-#Fiedler_vector = V[:,1]
-Fiedler_vector = (Fiedler_vector - min(Fiedler_vector)) / (max(Fiedler_vector) - min(Fiedler_vector))
-write_PLY_file(model_name, nodes, face_data, Fiedler_vector)#resort_indices)
+Fiedler_vector = V[:,1]
+
+#data = read_numerical_csv_file("Fiedler.csv")
+#Fiedler_vector = data.reshape((data.shape[0]))
+
+#get ordering from Fiedler vector
+resort_indices = np.argsort(Fiedler_vector)
+resort_ranks = np.zeros_like(Fiedler_vector)
+resort_ranks[resort_indices] = np.arange(len(Fiedler_vector))
+resort_ranks = resort_ranks / resort_ranks.shape[0]
+
+#print out data
+write_PLY_file(model_name, nodes, face_data, resort_ranks)
+write_PLY_file("contour_"+model_name, nodes, face_data, resort_ranks, contour=True)
 
 
 
