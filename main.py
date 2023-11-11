@@ -3,6 +3,7 @@ from scipy import sparse
 import time
 import os
 import subprocess
+import pyamg
 
 models_folder = os.path.join("..","models")
 
@@ -198,8 +199,25 @@ def get_Fiedler_vector_libgl(nodes, face_data):
     data = read_numerical_csv_file("Fiedler.csv")
     return data.reshape((data.shape[0]))
 
+def pyamg_solve(L):
+    K=2
 
-model_name = "dragon_vrip_res3_connected.ply"#"Armadillo_digital.ply"#"bun_connected.ply"#
+    # create the AMG hierarchy
+    ml = pyamg.smoothed_aggregation_solver(L)
+
+    # initial approximation to the K eigenvectors
+    X = np.random.rand(L.shape[0], K) - 0.5
+    X[:,0] = (1./L.shape[0])*np.ones(L.shape[0])
+    #X[:,1] = 2.*np.array([i for i in range(L.shape[0])])
+
+    # preconditioner based on ml
+    M = ml.aspreconditioner()
+
+    return sparse.linalg.lobpcg(L, X, M=M, tol=1e-8, largest=False, maxiter=400)
+
+
+
+model_name = "Armadillo_digital.ply"#"bun_connected.ply"#"dragon_vrip_res2_connected.ply"#
 nodes, face_data = extract_model(model_name)       #extract the model from the PLY file
 
 #write_basic_PLY_file(model_name, nodes, face_data)
@@ -207,21 +225,22 @@ nodes, face_data = extract_model(model_name)       #extract the model from the P
 
 #Fiedler_vector = get_Fiedler_vector_libgl(nodes, face_data)
 
-#print(len(nodes))
-#print(Fiedler_vector.shape)
-#print(Fiedler_vector)
 L = construct_Laplacian(nodes)          #construct graph Laplacian
 #print(L)
 #L_explicit = L.toarray()
 #print("L-L.T\n",L_explicit-L_explicit.T)
-#print("\nextract Fiedler vector")
-W, V = sparse.linalg.eigsh(L, k=2, which="SM")  #extract Fiedler vector
-print(W, "\n", V.T)
+print("\nextract Fiedler vector")
+#W, V = sparse.linalg.eigsh(L, k=2, which="SM")  #extract Fiedler vector
+W, V = pyamg_solve(L)
+
+#print(W, "\n", V.T)
 #print(np.matmul(L_explicit,V[:,0]))
 Fiedler_vector = V[:,1]
 
 #data = read_numerical_csv_file("Fiedler.csv")
 #Fiedler_vector = data.reshape((data.shape[0]))
+
+print("Fiedler_vector",Fiedler_vector,"\ne-value:",W[1])
 
 #get ordering from Fiedler vector
 resort_indices = np.argsort(Fiedler_vector)
