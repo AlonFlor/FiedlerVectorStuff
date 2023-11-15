@@ -82,6 +82,42 @@ def read_numerical_csv_file(file_path, num_type=float):
     return np.array(data)
 
 
+'''Note: bfs rankings got an almost-good result with the lobpcg for the medium dragon.'''
+def bfs_traverse(nodes, start_node=None):
+    queue = []
+    visited = np.zeros((len(nodes)))
+    current_score = 0.
+
+    #get the start node furthest from the center
+    if start_node is None:
+        #find center of model
+        center_location = np.zeros((3))
+        for node in nodes:
+            center_location += node.location
+        center_location /= len(nodes)
+
+        #get the start node
+        start_node = 0
+        max_dist = 0.
+        for i in np.arange(len(nodes)):
+            node = nodes[i]
+            dist = np.linalg.norm(node.location - center_location)
+            if dist > max_dist:
+                max_dist = dist
+                start_node = i
+
+    queue.append(start_node)
+    visited[start_node] = 1.
+    while queue:
+        current = nodes[queue.pop(0)]
+        for j in current.connections:
+            if visited[j] == 0.:
+                queue.append(j)
+                visited[j] = 1.
+                current_score += 1.
+    return visited
+
+
 
 class Node:
     def __init__(self, location):
@@ -123,18 +159,27 @@ def extract_model(model_name):
                 location = [float(line[0]), float(line[1]), float(line[2])]
                 nodes.append(Node(location))
 
-    #remove disconnected nodes and decrement all indices after them
+    #remove disconnected regions and decrement all indices after them
 
-    print("removing disconnected nodes and decrementing all indices after the indices of the removed nodes")
+    print("removing disconnected areas and decrementing all indices after the indices of the removed nodes")
     to_delete = []
     decrement_stops = []
-    #get unconnected nodes and their indices
+    #get unconnected regions and the indices of their nodes
+    visited = bfs_traverse(nodes)
+    tries = 0
+    while np.sum(visited)<0.5*len(nodes):
+        #assume at least half of the graph is connected. If this fails after 100 tries, exit
+        if tries > 100:
+            print("Graph appears to be split in half or into lots of little pieces")
+            exit(1)
+        visited = bfs_traverse(nodes, np.random.randint(0,len(nodes)))
+        tries += 1
     for i in np.arange(len(nodes)):
         node = nodes[i]
-        if len(node.connections) == 0:
+        if visited[i] == 0:
             to_delete.append(node)
             decrement_stops.append(i)
-    #get the altered indices by decrementing indices after the indices of unconnected nodes
+    #get the altered indices by decrementing indices after the indices of nodes in unconnected areas
     altered_indices = [i for i in np.arange(len(nodes))]
     for i in np.arange(len(altered_indices)):
         dec_num = 0
@@ -146,6 +191,16 @@ def extract_model(model_name):
     for node in nodes:
         for i in np.arange(len(node.connections)):
             node.connections[i] = altered_indices[node.connections[i]]
+    #mark faces to in isolated regions to delete
+    faces_to_delete = []
+    for i in np.arange(len(face_data)):
+        delete_this = False
+        for j in np.arange(len(face_data[i])):
+            if nodes[face_data[i][j]] in to_delete:
+                delete_this = True
+                break
+        if delete_this:
+            faces_to_delete.append(face_data[i])
     #put altered indices in face data
     for i in np.arange(len(face_data)):
         for j in np.arange(len(face_data[i])):
@@ -153,7 +208,10 @@ def extract_model(model_name):
     #delete unconnected nodes
     for node in to_delete:
         nodes.remove(node)
-    print(f"Done. Removed {len(to_delete)} nodes.")
+    #delete faces
+    for face in faces_to_delete:
+        face_data.remove(face)
+    print(f"Done. Removed {len(to_delete)} nodes and {len(faces_to_delete)} faces.")
 
     return nodes, face_data
 
@@ -175,7 +233,7 @@ def construct_Laplacian(nodes):
     return sparse.csr_matrix(L)
 
 
-def get_Fiedler_vector_libigl(nodes, face_data):
+def get_Laplacian_libigl(nodes, face_data):
     #set up the nodes and faces for libigl
     vectors_string = ""
     for node in nodes:
@@ -191,13 +249,22 @@ def get_Fiedler_vector_libigl(nodes, face_data):
     data_file.close()
 
     #call the libgl code
-    command_str = "./stuff"
+    command_str = "./generate_cotangent_Laplacian"
     process = subprocess.Popen(command_str, shell=True, stdout=subprocess.PIPE)
     process.wait()
 
     #read the csv file returned
-    data = read_numerical_csv_file("Fiedler.csv")
-    return data.reshape((data.shape[0]))
+    data = read_numerical_csv_file("cotangent_Laplacian.csv")
+
+    #generate Laplacian
+    N = len(nodes)
+    L = sparse.lil_matrix((N, N), dtype=float)
+    for i in np.arange(len(data)):
+        row,col,value = data[i]
+        row=int(row)
+        col=int(col)
+        L[row, col] = value
+    return sparse.csr_matrix(L)
 
 
 def interpolation_matrix_for_coarsening(L, M):
@@ -242,7 +309,7 @@ def interpolation_matrix_for_coarsening(L, M):
             threshold += threshold_incr
             iters = 0
 
-    region_indices = np.zeros((N))
+    '''region_indices = np.zeros((N))
     distances_to_center = np.zeros((N))
     visited = np.zeros((N))
     region_queues = []
@@ -274,11 +341,11 @@ def interpolation_matrix_for_coarsening(L, M):
                         if region_indices[j] == 0:
                             print("haha")
                             exit(1)
-                        '''if region_indices[j] != i+1:
+                        if region_indices[j] != i+1:
                             if distances_to_center[j] > distances_to_center[next] + 1.:
                                 region_queue.append(j)
                                 region_indices[j] = i+1
-                                distances_to_center[j] = distances_to_center[next] + 1.'''
+                                distances_to_center[j] = distances_to_center[next] + 1.
                     else:
                         region_queue.append(j)
                         region_indices[j] = i+1
@@ -310,9 +377,9 @@ def interpolation_matrix_for_coarsening(L, M):
     for i in np.arange(N):
         region_index = int(region_indices[i])-1
         print(region_index)
-        A[i,region_index]=1.
+        A[i,region_index]=1.'''
 
-    '''#build the interpolation matrix
+    #build the interpolation matrix
     print("going to build it",N,M)
     A = sparse.lil_matrix((N,M), dtype=float)
     for i in np.arange(M):
@@ -332,13 +399,13 @@ def interpolation_matrix_for_coarsening(L, M):
         for j in np.arange(M):
             if j == i:
                 continue
-            A[rep_index,j] = 1.'''
+            A[rep_index,j] = 1.
     print("built it")
 
     return sparse.csr_matrix(A)
 
 
-'''Note: bfs rankings got an almost-good result with the lobpcg for the medium dragon.'''
+'''Note: bfs rankings got an almost-good result with the lobpcg for the medium dragon even before I discovered that it is a disconnected model.'''
 def bfs_rankings(nodes):
     queue = []
     visited = np.zeros((len(nodes)))
@@ -371,8 +438,6 @@ def bfs_rankings(nodes):
                 visited[j] = 1.
                 current_score += 1.
                 scores[j] = current_score + 0.
-    print(np.sum(visited),visited.shape[0])
-    input("Proceed")
     return scores
 
 
@@ -414,36 +479,32 @@ def multigrid_solve(L, target_size, multiplier):
     return pyamg_solve(L, de_interpolated_guess)
 
 
-model_name = "dragon_vrip_res2_connected.ply"#"bun_connected.ply"#"Armadillo_digital.ply"#"dragon_vrip.ply"#
+model_name = "dragon_vrip_connected.ply"#"dragon_vrip_res2_connected.ply"#"dragon_vrip_res2_connected.ply"#"Armadillo_digital.ply"#"bun_connected.ply"#
 nodes, face_data = extract_model(model_name)       #extract the model from the PLY file
 
 #write_basic_PLY_file(model_name, nodes, face_data)
 #exit()
 
-#Fiedler_vector = get_Fiedler_vector_libigl(nodes, face_data)
-
-L = construct_Laplacian(nodes)          #construct graph Laplacian
+#L = get_Laplacian_libigl(nodes, face_data)         #cotangent Laplacian
+L = construct_Laplacian(nodes)          #construct combinatorial Laplacian
 #print(L)
 #L_explicit = L.toarray()
 #print("L-L.T\n",L_explicit-L_explicit.T)
 print()
-
-print("bfs")
-rankings_estimate = bfs_rankings(nodes)
-
 print("extract Fiedler vector")
 #W, V = sparse.linalg.eigsh(L, k=2, which="SM")  #extract Fiedler vector
-#W, V = pyamg_solve(L)
-W, V = multigrid_solve(L, 10000, 0.05)
+W, V = pyamg_solve(L)
+#W, V = multigrid_solve(L, 10000, 0.05)
 
-print(W, "\n", V.T)
+#print(W, "\n", V.T)
 #print(np.matmul(L_explicit,V[:,0]))
 Fiedler_vector = V[:,1]
 
 #data = read_numerical_csv_file("Fiedler.csv")
 #Fiedler_vector = data.reshape((data.shape[0]))
 
-print("Fiedler_vector",Fiedler_vector,"\ne-value:",W[1])
+print("Fiedler_vector",Fiedler_vector)
+#print("Fiedler_vector",Fiedler_vector,"\ne-value:",W[1])
 
 #get ordering from Fiedler vector
 resort_indices = np.argsort(Fiedler_vector)
