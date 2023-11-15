@@ -82,7 +82,6 @@ def read_numerical_csv_file(file_path, num_type=float):
     return np.array(data)
 
 
-'''Note: bfs rankings got an almost-good result with the lobpcg for the medium dragon.'''
 def bfs_traverse(nodes, start_node=None):
     queue = []
     visited = np.zeros((len(nodes)))
@@ -161,7 +160,7 @@ def extract_model(model_name):
 
     #remove disconnected regions and decrement all indices after them
 
-    print("removing disconnected areas and decrementing all indices after the indices of the removed nodes")
+    print("removing disconnected regions and decrementing all indices after the indices of the removed nodes")
     to_delete = []
     decrement_stops = []
     #get unconnected regions and the indices of their nodes
@@ -179,7 +178,7 @@ def extract_model(model_name):
         if visited[i] == 0:
             to_delete.append(node)
             decrement_stops.append(i)
-    #get the altered indices by decrementing indices after the indices of nodes in unconnected areas
+    #get the altered indices by decrementing indices after the indices of nodes in unconnected regions
     altered_indices = [i for i in np.arange(len(nodes))]
     for i in np.arange(len(altered_indices)):
         dec_num = 0
@@ -405,7 +404,7 @@ def interpolation_matrix_for_coarsening(L, M):
     return sparse.csr_matrix(A)
 
 
-'''Note: bfs rankings got an almost-good result with the lobpcg for the medium dragon even before I discovered that it is a disconnected model.'''
+'''Note: bfs rankings might give almost-good/nearly-as-good results.'''
 def bfs_rankings(nodes):
     queue = []
     visited = np.zeros((len(nodes)))
@@ -503,8 +502,7 @@ Fiedler_vector = V[:,1]
 #data = read_numerical_csv_file("Fiedler.csv")
 #Fiedler_vector = data.reshape((data.shape[0]))
 
-print("Fiedler_vector",Fiedler_vector)
-#print("Fiedler_vector",Fiedler_vector,"\ne-value:",W[1])
+print("Fiedler_vector",Fiedler_vector,"\ne-value:",W[1])
 
 #get ordering from Fiedler vector
 resort_indices = np.argsort(Fiedler_vector)
