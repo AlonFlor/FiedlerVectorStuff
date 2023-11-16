@@ -17,7 +17,7 @@ def read_data_file(model_name):
     model_file.close()
     return model_data
 
-def write_PLY_file(model_name, nodes, face_data, vect, contour=False):
+def write_color_PLY_file(model_name, nodes, face_data, rankings, contour=False):
     '''write a PLY file with colors'''
 
     header = f"ply\nformat ascii 1.0\nelement vertex {len(nodes)}\nproperty float x\nproperty float y\nproperty float z\n" + \
@@ -26,22 +26,56 @@ def write_PLY_file(model_name, nodes, face_data, vect, contour=False):
              "property list uchar int vertex_indices\nend_header\n"
     vec_data_str = ""
     for i,node in enumerate(nodes):
-        color = int(np.round(255 * vect[i]))
+        color = int(np.round(255 * rankings[i]))
         if contour:
-            color = 255 if (int(np.round(255 * vect[i])) % 10 > 5) else 0
+            color = 255 if (int(np.round(255 * rankings[i])) % 10 > 5) else 0
         #color = int(np.round(255 * resort_indices_normed[i]))
         #color = int(np.round(255/5 * np.round(resort_indices_normed[i]*5)))
         #color = 255 * (0 if resort_indices_normed[i]<0.5 else 1)
         vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + " " + str(color) + " " + str(color) + " 255\n"
     face_data_str = ""
-    for face_datum in face_data:
-        face_data_str += "3 " + str(face_datum[0]) + " " + str(face_datum[1]) + " " + str(face_datum[2]) + "\n"
+    for face in face_data:
+        face_data_str += "3 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + "\n"
 
     string_to_write = header + vec_data_str + face_data_str[:-1]
 
     data_file = open(model_name, "w")
     data_file.write(string_to_write)
     data_file.close()
+
+def write_reordered_PLY_file(model_name, nodes, face_data, rankings):
+    '''write a reordered PLY file'''
+
+    header = f"ply\nformat ascii 1.0\nelement vertex {len(nodes)}\nproperty float x\nproperty float y\nproperty float z\n" + \
+             f"element face {len(face_data)}\n" + \
+             "property list uchar int vertex_indices\nend_header\n"
+    vec_data_str = ""
+
+    #write nodes
+    for i in np.arange(len(nodes)):
+        node_index = np.where(rankings==i)[0][0]
+        node = nodes[node_index]
+        vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+
+    #change vertices in faces
+    for i in np.arange(len(face_data)):
+        for j in np.arange(3):
+            face_data[i][j] = rankings[face_data[i][j]]
+
+    #reorder faces
+    face_data = sorted(face_data, key = lambda face:tuple(sorted(face)))
+
+    #write faces
+    face_data_str = ""
+    for face in face_data:
+        face_data_str += "3 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + "\n"
+
+    string_to_write = header + vec_data_str + face_data_str[:-1]
+
+    data_file = open(model_name, "w")
+    data_file.write(string_to_write)
+    data_file.close()
+
 
 def write_basic_PLY_file(model_name, nodes, face_data):
     '''write a PLY file with colors'''
@@ -56,8 +90,8 @@ def write_basic_PLY_file(model_name, nodes, face_data):
         #color = 255 * (0 if resort_indices_normed[i]<0.5 else 1)
         vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
     face_data_str = ""
-    for face_datum in face_data:
-        face_data_str += "3 " + str(face_datum[0]) + " " + str(face_datum[1]) + " " + str(face_datum[2]) + "\n"
+    for face in face_data:
+        face_data_str += "3 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + "\n"
 
     string_to_write = header + vec_data_str + face_data_str[:-1]
 
@@ -478,7 +512,7 @@ def multigrid_solve(L, target_size, multiplier):
     return pyamg_solve(L, de_interpolated_guess)
 
 
-model_name = "dragon_vrip_connected.ply"#"dragon_vrip_res2_connected.ply"#"dragon_vrip_res2_connected.ply"#"Armadillo_digital.ply"#"bun_connected.ply"#
+model_name = "dragon_vrip_connected.ply"#"dragon_vrip_res2_connected.ply"#"Armadillo_digital.ply"#"bun_connected.ply"#
 nodes, face_data = extract_model(model_name)       #extract the model from the PLY file
 
 #write_basic_PLY_file(model_name, nodes, face_data)
@@ -508,12 +542,17 @@ print("Fiedler_vector",Fiedler_vector,"\ne-value:",W[1])
 resort_indices = np.argsort(Fiedler_vector)
 resort_ranks = np.zeros_like(Fiedler_vector)
 resort_ranks[resort_indices] = np.arange(len(Fiedler_vector))
-resort_ranks = resort_ranks / resort_ranks.shape[0]
+resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
+resort_ranks = resort_ranks.astype(int)
+
+#resort_ranks_normed = np.array([i for i in np.arange(len(nodes))])
+#resort_ranks_normed = resort_ranks_normed / resort_ranks_normed.shape[0]
 
 #print out data
-write_PLY_file(model_name, nodes, face_data, resort_ranks)
-write_PLY_file("contour_"+model_name, nodes, face_data, resort_ranks, contour=True)
+write_color_PLY_file(model_name, nodes, face_data, resort_ranks_normed)
+write_color_PLY_file("contour_"+model_name, nodes, face_data, resort_ranks_normed, contour=True)
 
+write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks)
 
 
 
