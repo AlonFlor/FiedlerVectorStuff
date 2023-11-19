@@ -172,8 +172,7 @@ def write_color_PLY_file(model_name, nodes, face_data, rankings, contour=False):
         # color = int(np.round(255 * resort_indices_normed[i]))
         # color = int(np.round(255/5 * np.round(resort_indices_normed[i]*5)))
         # color = 255 * (0 if resort_indices_normed[i]<0.5 else 1)
-        vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(
-            node.location[2]) + " " + str(color) + " " + str(color) + " 255\n"
+        vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + " " + str(color) + " " + str(color) + " 255\n"
 
     face_data_str = ""
     if len(face_data[0]) == 4:
@@ -269,7 +268,6 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rear
     for i in np.arange(len(face_data)):
         for j in np.arange(4):
             face_data[i][j] = rankings[face_data[i][j]]
-        # face_data[i] = np.sort(face_data[i]) #for use as indices when reordering the faces.
 
     ## reorder faces
     #if rearrange_faces:

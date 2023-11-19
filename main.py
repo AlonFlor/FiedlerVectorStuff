@@ -215,5 +215,5 @@ resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
 model_file_handling.write_color_PLY_file(model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
 model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
 
-#model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks)
+#model_file_handling.write_reordered_PLY_file("reordered_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks)
 model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info)
