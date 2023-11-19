@@ -1,8 +1,6 @@
 import model_file_handling
 import numpy as np
 from scipy import sparse
-import time
-import subprocess
 import pyamg
 
 def bfs_traverse(nodes, start_node=None):
@@ -205,15 +203,17 @@ model_name = "myInputMeshFile.veg"#"bun_connected.ply"#"Armadillo_digital.ply"#"
 nodes, face_data, extra_info = model_file_handling.extract_model(model_name)       #extract the model from the PLY file
 nodes, face_data = prune_to_make_fully_connected(nodes, face_data)
 
-#resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
+resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
 
-resort_ranks, resort_ranks_normed = get_scrambled_reordering()
-#resort_ranks_normed = np.array([i for i in np.arange(len(nodes))])
-#resort_ranks_normed = resort_ranks_normed / resort_ranks_normed.shape[0]
+#resort_ranks, resort_ranks_normed = get_scrambled_reordering()
+
+#resort_ranks = np.array([i for i in np.arange(len(nodes))])
+#resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
+
 
 #print out data
-#model_file_handling.write_color_PLY_file(model_name, nodes, face_data, resort_ranks_normed)
-#model_file_handling.write_color_PLY_file("contour_"+model_name, nodes, face_data, resort_ranks_normed, contour=True)
+model_file_handling.write_color_PLY_file(model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
+model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
 
 #model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks)
 model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info)

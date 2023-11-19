@@ -174,9 +174,15 @@ def write_color_PLY_file(model_name, nodes, face_data, rankings, contour=False):
         # color = 255 * (0 if resort_indices_normed[i]<0.5 else 1)
         vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(
             node.location[2]) + " " + str(color) + " " + str(color) + " 255\n"
+
     face_data_str = ""
-    for face in face_data:
-        face_data_str += "3 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + "\n"
+    if len(face_data[0]) == 4:
+        #handle tetrahedral meshes
+        for face in face_data:
+            face_data_str += "4 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + " " + str(face[3]) + "\n"
+    else:
+        for face in face_data:
+            face_data_str += "3 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + "\n"
 
     string_to_write = header + vec_data_str + face_data_str[:-1]
 
@@ -223,9 +229,8 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, rearrange_f
 
     # change vertices in faces
     for i in np.arange(len(face_data)):
-        for j in np.arange(3):
+        for j in np.arange(len(face_data[i])):
             face_data[i][j] = rankings[face_data[i][j]]
-        # face_data[i] = np.sort(face_data[i]) #for use as indices when reordering the faces.
 
     # reorder faces
     if rearrange_faces:
@@ -233,8 +238,13 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, rearrange_f
 
     # write faces
     face_data_str = ""
-    for face in face_data:
-        face_data_str += "3 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + "\n"
+    if len(face_data[0]) == 4:
+        #handle tetrahedral meshes
+        for face in face_data:
+            face_data_str += "4 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + " " + str(face[3]) + "\n"
+    else:
+        for face in face_data:
+            face_data_str += "3 " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + "\n"
 
     string_to_write = header + vec_data_str + face_data_str[:-1]
 
@@ -257,20 +267,20 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rear
 
     # change vertices in faces
     for i in np.arange(len(face_data)):
-        for j in np.arange(3):
+        for j in np.arange(4):
             face_data[i][j] = rankings[face_data[i][j]]
         # face_data[i] = np.sort(face_data[i]) #for use as indices when reordering the faces.
 
-    # reorder faces
-    if rearrange_faces:
-        face_data = bucket_sort(face_data)
+    ## reorder faces
+    #if rearrange_faces:
+    #    face_data = bucket_sort(face_data)
 
     # write faces
     face_data_str = "\n*ELEMENTS\nTET\n"
     face_data_str += f"{len(face_data)} 4 0\n"
     for i in np.arange(len(face_data)):
         face = face_data[i]
-        face_data_str += str(i+1) + " " + str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + " " + str(face[3]) + "\n"
+        face_data_str += str(i+1) + " " + str(face[0]+1) + " " + str(face[1]+1) + " " + str(face[2]+1) + " " + str(face[3]+1) + "\n"
 
     other_str = "\n"
     for line in other:
