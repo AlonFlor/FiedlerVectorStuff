@@ -17,7 +17,7 @@
 
 int main(int argc, char *argv[])
 {
-   char inputFilename[96] = "myInputMeshFile.veg";
+   char inputFilename[96] = "dragon.veg";
    VolumetricMesh * volumetricMesh = VolumetricMeshLoader::load(inputFilename);
    if (volumetricMesh == NULL) printf("Error: failed to load mesh.\n");
    else printf("Success. Number of vertices: %d . Number of elements: %d .\n", volumetricMesh->getNumVertices(), volumetricMesh->getNumElements());
@@ -36,8 +36,9 @@ int main(int argc, char *argv[])
    // Create consistent (non-lumped) mass matrix.
    GenerateMassMatrix::computeMassMatrix(volumetricMesh, &massMatrix, true);
    // constraining vertices 4, 10, 14 (constrained DOFs are specified 0-indexed):
-   int numConstrainedDOFs = 9;
-   int constrainedDOFs[9] = { 12, 13, 14, 30, 31, 32, 42, 43, 44 };
+   int numConstrainedDOFs = 0;//9;
+   int constrainedDOFs[0] = {};
+   //int constrainedDOFs[9] = { 12, 13, 14, 30, 31, 32, 42, 43, 44 };
    // (tangential) Rayleigh damping
    double dampingMassCoef = 0.0; // "underwater"-like damping (here turned off)
    double dampingStiffnessCoef = 0.01; // (primarily) high-frequency damping
@@ -52,23 +53,29 @@ int main(int argc, char *argv[])
    int numTimesteps = 10;
    const auto start_time {std::chrono::steady_clock::now()};
    for(int i=0; i<numTimesteps; i++){
-      printf("%d\n",i);
+      //printf("%d\n",i);
       // important: must always clear forces, as they remain in effect unless changed
       implicitBackwardEulerSparse->SetExternalForcesToZero();
       if (i == 0){ // set some force at the first timestep
-         for(int j=0; j<r; j++)f[j] = 0; // clear to 0
-         f[37] = -500; // apply force of -500 N to vertex 12, in y-direction, 3*12+1 = 37
+         for(int j=0; j<r; j++)f[j] = -50.; // clear to 0
+         //f[37] = -500; // apply force of -500 N to vertex 12, in y-direction, 3*12+1 = 37
          implicitBackwardEulerSparse->SetExternalForces(f);
       }
       implicitBackwardEulerSparse->DoTimestep();
    }
-   // alocate buffer to read the resulting displacements
-   double * u = (double*) malloc (sizeof(double) * r);
-   implicitBackwardEulerSparse->GetqState(u);
-
+   //print time
    const auto end_time {std::chrono::steady_clock::now()};
    const std::chrono::duration<double> elapsed_seconds{end_time - start_time};
    std::cout << elapsed_seconds.count() << std::endl;
+
+   // allocate buffer to read the resulting displacements
+   double * u = (double*) malloc (sizeof(double) * r);
+   implicitBackwardEulerSparse->GetqState(u);
+   //for(int i=0; i<r; i++){
+   //   printf("%f ",u[i]);
+   //}
+   //printf("\n");
+   
 
    //TODO
    // initialize mesh

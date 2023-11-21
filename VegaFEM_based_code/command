@@ -10,7 +10,7 @@ Notes:
 	Includes (-I, -iprefix, etc.) point the way to header files, linking points the way to libraries (.so and .a files).
 	If a library's name is liblibrary.a or liblibrary.so, then it is linked via -llibrary, and its directory's location is specified with the -L flag.
 	Order matters! "g++ -std=c++11" goes first, then the header inclusions, then the c++ files, the optimizer flag, the name of the binary, then at the end are the links.
-	Within the links, order matters. If liba.a depends on libb.b, then -la must come before -lb. In the call above, note that -lglut is at the end.
+	Within the links, order matters. If liba.a depends on libb.a, then -la must come before -lb. In the call above, note that -lglut is at the end.
 	VegaFEM libraries I need are in the makefile for interactiveDeformableSimulator, in the utilities folder in the VegaFEM-v4.0 folder.
 	The makefile for interactiveDeformableSimulator includes a shorthand for linking the VegaFEM libraries. I might copy it sometime.
 
