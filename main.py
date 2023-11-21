@@ -199,8 +199,8 @@ def get_scrambled_reordering():
     return resort_ranks, resort_ranks_normed
 
 
-model_name = "myInputMeshFile.veg"#"bun_connected.ply"#"Armadillo_digital.ply"#"dragon_vrip_res2_connected.ply"#"dragon_vrip_connected.ply"#
-nodes, face_data, extra_info = model_file_handling.extract_model(model_name)       #extract the model from the PLY file
+model_name = "dragon.veg"#"bun_connected.ply"#"Armadillo_digital.ply"#"dragon_vrip_res2_connected.ply"#"dragon_vrip_connected.ply"#
+nodes, face_data, extra_info = model_file_handling.extract_model(model_name)       #extract the model from the file
 nodes, face_data = prune_to_make_fully_connected(nodes, face_data)
 
 resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
@@ -209,7 +209,6 @@ resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
 
 #resort_ranks = np.array([i for i in np.arange(len(nodes))])
 #resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
-
 
 #print out data
 model_file_handling.write_color_PLY_file(model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)

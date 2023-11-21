@@ -57,6 +57,47 @@ def extract_model_PLY(model_data):
                 nodes.append(Node(location))
     return nodes, face_data, None
 
+def extract_model_OBJ(model_data):
+    nodes = []
+    face_data = []
+    other = []
+
+    #extract the data
+    for line in model_data:
+        print(line)
+        if line[0] == "v":
+            location = [float(line[1]), float(line[2]), float(line[3])]
+            nodes.append(Node(location))
+        elif line[0] == "f":
+            new_line = []
+            #get rid of "/"
+            for i in np.arange(1, len(line)):
+                line_part = line[i]
+                if "/" in line_part:
+                    line_part = line_part[:line_part.index("/")]
+                new_line.append(line_part)
+            node1 = int(new_line[0]) - 1
+            node2 = int(new_line[1]) - 1
+            node3 = int(new_line[2]) - 1
+
+            face_data.append([node1, node2, node3])
+            if node2 not in nodes[node1].connections:
+                nodes[node1].connections.append(node2)
+            if node3 not in nodes[node1].connections:
+                nodes[node1].connections.append(node3)
+            if node1 not in nodes[node2].connections:
+                nodes[node2].connections.append(node1)
+            if node3 not in nodes[node2].connections:
+                nodes[node2].connections.append(node3)
+            if node1 not in nodes[node3].connections:
+                nodes[node3].connections.append(node1)
+            if node2 not in nodes[node3].connections:
+                nodes[node3].connections.append(node2)
+        else:
+            other.append(line)
+
+    return nodes, face_data, other
+
 
 def extract_model_VEG(model_data):
     nodes = []
@@ -152,8 +193,7 @@ def extract_model(model_name):
     if model_name_to_check.endswith(".ply"):
         return extract_model_PLY(model_data)
     elif model_name_to_check.endswith(".obj"):
-        print(".obj is unsupported")
-        exit(1)
+        return extract_model_OBJ(model_data)
     elif model_name_to_check.endswith(".veg"):
         return extract_model_VEG(model_data)
 
@@ -269,9 +309,9 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rear
         for j in np.arange(4):
             face_data[i][j] = rankings[face_data[i][j]]
 
-    ## reorder faces
-    #if rearrange_faces:
-    #    face_data = bucket_sort(face_data)
+    # reorder faces
+    if rearrange_faces:
+        face_data = bucket_sort(face_data)
 
     # write faces
     face_data_str = "\n*ELEMENTS\nTET\n"
@@ -288,6 +328,54 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rear
         other_str += "\n"
 
     string_to_write = vec_data_str + face_data_str + other_str
+
+    data_file = open(model_name, "w")
+    data_file.write(string_to_write)
+    data_file.close()
+
+
+def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, rearrange_faces=False):
+    '''write a reordered VEG file'''
+
+    vec_data_str = ""
+
+    # write nodes
+    for i in np.arange(len(nodes)):
+        node_index = np.where(rankings == i)[0][0]
+        node = nodes[node_index]
+        vec_data_str += "v " + str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+
+    # change vertices in faces
+    for i in np.arange(len(face_data)):
+        for j in np.arange(len(face_data[i])):
+            face_data[i][j] = rankings[face_data[i][j]]
+
+    # reorder faces
+    if rearrange_faces:
+        face_data = bucket_sort(face_data)
+
+    # write faces
+    face_data_str = ""
+    for i in np.arange(len(face_data)):
+        local_face_data_str = "f"
+        face = face_data[i]
+        for j in np.arange(len(face)):
+            local_face_data_str += " " + str(face[j]+1)+"//"+str(face[j]+1)
+        local_face_data_str += "\n"
+        face_data_str += local_face_data_str
+
+    other_str = ""
+    if other is not None:
+        for line in other:
+            for i in np.arange(len(line)):
+                element = line[i]
+                if len(element) > 0:
+                    other_str += element
+                    if i<len(line)-1:
+                        other_str += " "
+            other_str += "\n"
+
+    string_to_write = vec_data_str + other_str + face_data_str
 
     data_file = open(model_name, "w")
     data_file.write(string_to_write)
