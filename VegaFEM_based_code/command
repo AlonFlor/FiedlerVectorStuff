@@ -1,8 +1,13 @@
-
-command to use:
-
+template of command to use to run:
+	./stuff <number of runs> <file name> <number of runs> <file name> <number of runs> <file name>
 	
-g++ -std=c++11 -iprefix../VegaFEM-v4.0/libraries/ basic_VegaFEM_code.cpp -o stuff -L../VegaFEM-v4.0/libraries/glui/glui-2.35/src/lib -lglui -L../VegaFEM-v4.0/libraries/lib -lsceneObject -lintegratorSparse -lintegrator -lstencilForceModel -lforceModel -llistIO -llighting -lconfigFile -lvolumetricMesh -lgetopts -lcamera -lgraph -lisotropicHyperelasticFEM -lstvk -lcorotationalLinearFEM -lsparseMatrix -lconstrainedDOFs -lpolarDecomposition -lminivector -lmatrixIO -lmassSpringSystem -lmesh -lobjMesh -lopenGLHelper -limageIO -lsparseSolver -lbasicAlgorithms -lGL -lGLU -lglut
+	each pair of <number of runs> <file name> tells the program how many times to run a file, and which file to run that many times.
+	
+	example:
+		./stuff 5 dragon.veg 5 reordered_dragon.veg 5 scrambled_dragon.veg
+
+command to use to compile:
+	g++ -std=c++11 -iprefix../VegaFEM-v4.0/libraries/ basic_VegaFEM_code.cpp -o stuff -L../VegaFEM-v4.0/libraries/glui/glui-2.35/src/lib -lglui -L../VegaFEM-v4.0/libraries/lib -lsceneObject -lintegratorSparse -lintegrator -lstencilForceModel -lforceModel -llistIO -llighting -lconfigFile -lvolumetricMesh -lgetopts -lcamera -lgraph -lisotropicHyperelasticFEM -lstvk -lcorotationalLinearFEM -lsparseMatrix -lconstrainedDOFs -lpolarDecomposition -lminivector -lmatrixIO -lmassSpringSystem -lmesh -lobjMesh -lopenGLHelper -limageIO -lsparseSolver -lbasicAlgorithms -lGL -lGLU -lglut
 
 Notes:
 	Header-only libraries only need include flags and the files and/or directories to include, so -I (or in this case -iprefix) gives what is needed.
