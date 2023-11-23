@@ -1,6 +1,7 @@
 import model_file_handling
 import numpy as np
 from scipy import sparse
+import sys
 import pyamg
 
 def bfs_traverse(nodes, start_node=None):
@@ -198,21 +199,62 @@ def get_scrambled_reordering():
 
     return resort_ranks, resort_ranks_normed
 
+args = sys.argv[1:]
+mode = None
+model_folder = None
+model_name = None
+command = "Fiedler"
+for arg in args:
+    if arg=="-help" or arg=="--help":
+        print("\ncommand line call for this program:\n\tpython3 main.py -name <model file name> -folder <path of folder of model> -command <command>\n")
+        print("Available commands:\n\tFiedler: reorder the vertices of the model by its Fiedler vector."+
+              "\n\tsame: keep the order of the vertices of the model the same.\n\tscramble: randomly rearrange the vertices of the model.\n")
+        exit(0)
+    if arg=="-folder":
+        mode = "folder"
+    elif arg=="-name":
+        mode = "name"
+    elif arg=="-command":
+        mode = "command"
+    elif mode=="folder":
+        model_folder = arg
+        mode = None
+    elif mode=="name":
+        model_name = arg
+        mode = None
+    elif mode=="command":
+        command = arg
+        mode = None
 
-model_name = "dragon.veg"#"bun_connected.ply"#"Armadillo_digital.ply"#"dragon_vrip_res2_connected.ply"#"dragon_vrip_connected.ply"#
-nodes, face_data, extra_info = model_file_handling.extract_model(model_name)       #extract the model from the file
+if model_name==None:
+    print("Need a model name")
+    exit(1)
+if command != "Fiedler" and command != "scramble" and command !="same":
+    print("Invalid command. Must be Fielder, scramble, or same. If left out, default is Fiedler.")
+
+
+nodes, face_data, extra_info = model_file_handling.extract_model(model_name, model_folder)       #extract the model from the file
 nodes, face_data = prune_to_make_fully_connected(nodes, face_data)
 
-resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
-
-#resort_ranks, resort_ranks_normed = get_scrambled_reordering()
-
-#resort_ranks = np.array([i for i in np.arange(len(nodes))])
-#resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
+resort_ranks = None
+resort_ranks_normed = None
+print(command)
+if command=="Fiedler":
+    resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
+elif command=="scramble":
+    resort_ranks, resort_ranks_normed = get_scrambled_reordering()
+elif command=="same":
+    resort_ranks = np.array([i for i in np.arange(len(nodes))])
+    resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
 
 #print out data
 model_file_handling.write_color_PLY_file(model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
 model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
 
-#model_file_handling.write_reordered_PLY_file("reordered_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks)
-model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info)
+model_name_to_check = model_name.lower()[-4:]
+if model_name_to_check == ".ply":
+    model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks)
+elif model_name_to_check == ".veg":
+    model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info)
+elif model_name_to_check == ".obj":
+    model_file_handling.write_reordered_OBJ_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info)

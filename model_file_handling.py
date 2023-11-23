@@ -6,14 +6,10 @@ class Node:
         self.location = np.array(location)
         self.connections = []
 
-models_folder = os.path.join("..","models")
 
 
-
-
-def read_data_file(model_name):
+def read_data_file(model_path):
     '''read data file'''
-    model_path = os.path.join(models_folder,model_name)
     model_file = open(model_path, "r")
     model_data = []
     for line in model_file:
@@ -34,8 +30,12 @@ def extract_model_PLY(model_data):
         except:
             skip=True
         if not skip:
-            num = float(line[0])
-            if int(num) - num == 0.:
+            isFace = True
+            for element in line:
+                if "." in element or "-" in element:
+                    isFace = False
+                    break
+            if isFace:
                 node1 = int(line[1])
                 node2 = int(line[2])
                 node3 = int(line[3])
@@ -64,7 +64,6 @@ def extract_model_OBJ(model_data):
 
     #extract the data
     for line in model_data:
-        print(line)
         if line[0] == "v":
             location = [float(line[1]), float(line[2]), float(line[3])]
             nodes.append(Node(location))
@@ -187,8 +186,11 @@ def extract_model_VEG(model_data):
     return nodes, face_data, other
 
 
-def extract_model(model_name):
-    model_data = read_data_file(model_name)
+def extract_model(model_name, model_folder=None):
+    model_path = model_name
+    if model_folder is not None:
+        model_path = os.path.join(model_folder, model_name)
+    model_data = read_data_file(model_path)
     model_name_to_check = model_name.lower()
     if model_name_to_check.endswith(".ply"):
         return extract_model_PLY(model_data)
@@ -261,9 +263,11 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, rearrange_f
     vec_data_str = ""
 
     # write nodes
+    nodes_ranks_dict = {}
     for i in np.arange(len(nodes)):
-        node_index = np.where(rankings == i)[0][0]
-        node = nodes[node_index]
+        nodes_ranks_dict[rankings[i]]=nodes[i]
+    for i in np.arange(len(nodes)):
+        node = nodes_ranks_dict[i]
         vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
 
     # change vertices in faces
@@ -299,10 +303,12 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rear
     vec_data_str += f"{len(nodes)} 3 0 0\n"
 
     # write nodes
+    nodes_ranks_dict = {}
     for i in np.arange(len(nodes)):
-        node_index = np.where(rankings == i)[0][0]
-        node = nodes[node_index]
-        vec_data_str += str(i+1) + " " + str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+        nodes_ranks_dict[rankings[i]]=nodes[i]
+    for i in np.arange(len(nodes)):
+        node = nodes_ranks_dict[i]
+        vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
 
     # change vertices in faces
     for i in np.arange(len(face_data)):
@@ -340,10 +346,12 @@ def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, rear
     vec_data_str = ""
 
     # write nodes
+    nodes_ranks_dict = {}
     for i in np.arange(len(nodes)):
-        node_index = np.where(rankings == i)[0][0]
-        node = nodes[node_index]
-        vec_data_str += "v " + str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+        nodes_ranks_dict[rankings[i]]=nodes[i]
+    for i in np.arange(len(nodes)):
+        node = nodes_ranks_dict[i]
+        vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
 
     # change vertices in faces
     for i in np.arange(len(face_data)):
