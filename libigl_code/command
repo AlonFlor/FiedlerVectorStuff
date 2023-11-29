@@ -1,0 +1,32 @@
+commands to compile:
+
+	Heat Geodesics:
+		g++ -std=c++11 -lpthread -I/usr/include/eigen3 -I./libigl/include/ heat_geodesics.cpp -o heat_geodesics
+	Directed Curvatures:
+		g++ -std=c++11 -lpthread -I/usr/include/eigen3 -I./libigl/include/ directed_curvatures.cpp -o directed_curvatures
+	Gaussian Curvatures:
+		g++ -std=c++11 -lpthread -I/usr/include/eigen3 -I./libigl/include/ Gaussian_curvatures.cpp -o Gaussian_curvatures
+
+	other:
+		g++ -std=c++11 -lpthread -I/usr/include/eigen3 -I./libigl/include/ code.cpp -o stuff
+		g++ -std=c++11 -lpthread -I/usr/include/eigen3 -I./libigl/include/ more_code.cpp -o more_stuff
+		g++ -std=c++11 -lpthread -I/usr/include/eigen3 -I./libigl/include/ b.cpp -o b
+		
+commands to run:
+	Heat Geodesics:
+		./heat_geodesics <number of runs> <file name> <number of runs> <file name> <number of runs> <file name>
+	
+		each pair of <number of runs> <file name> tells the program how many times to run a file, and which file to run that many times.
+	
+		example:
+			./heat_geodesics 5 scrambled_xyzrgb_dragon_digital_connected.ply 5 xyzrgb_dragon_digital_connected.ply 5 reordered_xyzrgb_dragon_digital_connected.ply
+					
+	Directed Curvatures:
+		./directed_curvatures <number of runs> <file name> <number of runs> <file name> <number of runs> <file name>
+		
+		same pattern as Heat Geodesics
+		
+	Gaussian Curvatures:
+		./Gaussian_curvatures <number of runs> <file name> <number of runs> <file name> <number of runs> <file name>
+		
+		same pattern as Heat Geodesics
