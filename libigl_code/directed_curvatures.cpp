@@ -147,9 +147,9 @@ double get_curvatures(string model_path, int attempt_number){
   // Alternative discrete mean curvature
   MatrixXd HN;
   SparseMatrix<double> L,M,Minv;
-  igl::cotmatrix(V,F,L);
-  igl::massmatrix(V,F,igl::MASSMATRIX_TYPE_VORONOI,M);
-  igl::invert_diag(M,Minv);
+  cotmatrix(V,F,L);
+  massmatrix(V,F,MASSMATRIX_TYPE_VORONOI,M);
+  invert_diag(M,Minv);
   // Laplace-Beltrami of position
   HN = -Minv*(L*V);
   // Extract magnitude as mean curvature
@@ -158,7 +158,7 @@ double get_curvatures(string model_path, int attempt_number){
   // Compute curvature directions via quadric fitting
   MatrixXd PD1,PD2;
   VectorXd PV1,PV2;
-  igl::principal_curvature(V,F,PD1,PD2,PV1,PV2);
+  principal_curvature(V,F,PD1,PD2,PV1,PV2);
   // mean curvature
   H = 0.5*(PV1+PV2);
 
