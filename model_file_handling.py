@@ -231,30 +231,37 @@ def write_color_PLY_file(model_name, nodes, face_data, rankings, contour=False):
     data_file.write(string_to_write)
     data_file.close()
 
-def bucket_sort(data):
-    buckets = {}
-    max_key = 0
-    for item_list in data:
-        bucket_id = min(item_list)
-        if bucket_id > max_key:
-            max_key = bucket_id
-        if bucket_id not in buckets:
-            buckets[bucket_id] = [item_list]
-        else:
-            buckets[bucket_id].append(item_list)
-    # sort buckets
-    sorted_data = []
-    for key in np.arange(max_key + 1):
-        # print(key)
-        try:
-            for item_list in buckets[key]:
-                sorted_data.append(item_list)
-        except:
-            pass
-    # print(len(sorted_data))
-    return sorted_data
+def reorder_faces(face_data, scramble=False):
+    if scramble:
+        face_resort_ranks = np.array([i for i in np.arange(len(face_data))])
+        np.random.shuffle(face_resort_ranks)
+    else:
+        face_scores = []
+        for face in face_data:
+            score = 0
+            for item in face:
+                score += item
+            face_scores.append(score)
+        face_scores = np.array(face_scores)
 
-def write_reordered_PLY_file(model_name, nodes, face_data, rankings, rearrange_faces=False):
+        #give faces ranks
+        face_resort_indices = np.argsort(face_scores)
+        face_resort_ranks = np.zeros_like(face_scores)
+        face_resort_ranks[face_resort_indices] = np.arange(len(face_scores))
+        face_resort_ranks = face_resort_ranks.astype(int)
+
+    #resort faces based on ranks
+    faces_ranks_dict = {}
+    for i in np.arange(len(face_data)):
+        faces_ranks_dict[face_resort_ranks[i]] = face_data[i]
+    new_face_data = []
+    for i in np.arange(len(face_data)):
+        face = faces_ranks_dict[i]
+        new_face_data.append(face)
+
+    return new_face_data
+
+def write_reordered_PLY_file(model_name, nodes, face_data, rankings, face_rearrangement_code=0):
     '''write a reordered PLY file'''
 
     header = f"ply\nformat ascii 1.0\nelement vertex {len(nodes)}\nproperty float x\nproperty float y\nproperty float z\n" + \
@@ -276,8 +283,10 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, rearrange_f
             face_data[i][j] = rankings[face_data[i][j]]
 
     # reorder faces
-    if rearrange_faces:
-        face_data = bucket_sort(face_data)
+    if face_rearrangement_code==1:
+        face_data = reorder_faces(face_data)
+    elif face_rearrangement_code==2:
+        face_data = reorder_faces(face_data, scramble=True)
 
     # write faces
     face_data_str = ""
@@ -296,7 +305,7 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, rearrange_f
     data_file.close()
 
 
-def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rearrange_faces=False):
+def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face_rearrangement_code=0):
     '''write a reordered VEG file'''
 
     vec_data_str = "\n*VERTICES\n"
@@ -316,8 +325,10 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rear
             face_data[i][j] = rankings[face_data[i][j]]
 
     # reorder faces
-    if rearrange_faces:
-        face_data = bucket_sort(face_data)
+    if face_rearrangement_code==1:
+        face_data = reorder_faces(face_data)
+    elif face_rearrangement_code==2:
+        face_data = reorder_faces(face_data, scramble=True)
 
     # write faces
     face_data_str = "\n*ELEMENTS\nTET\n"
@@ -340,7 +351,7 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, rear
     data_file.close()
 
 
-def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, rearrange_faces=False):
+def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, face_rearrangement_code=0):
     '''write a reordered VEG file'''
 
     vec_data_str = ""
@@ -359,8 +370,10 @@ def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, rear
             face_data[i][j] = rankings[face_data[i][j]]
 
     # reorder faces
-    if rearrange_faces:
-        face_data = bucket_sort(face_data)
+    if face_rearrangement_code==1:
+        face_data = reorder_faces(face_data)
+    elif face_rearrangement_code==2:
+        face_data = reorder_faces(face_data, scramble=True)
 
     # write faces
     face_data_str = ""

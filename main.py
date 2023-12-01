@@ -115,42 +115,6 @@ def construct_Laplacian(nodes):
 
 
 
-'''Note: bfs rankings might give almost-good/nearly-as-good results.'''
-def bfs_rankings(nodes):
-    queue = []
-    visited = np.zeros((len(nodes)))
-    scores = np.zeros((len(nodes)))
-    current_score = 0.
-
-    #find center of model
-    center_location = np.zeros((3))
-    for node in nodes:
-        center_location += node.location
-    center_location /= len(nodes)
-
-    #get the start node furthest from the center
-    start_node = 0
-    max_dist = 0.
-    for i in np.arange(len(nodes)):
-        node = nodes[i]
-        dist = np.linalg.norm(node.location - center_location)
-        if dist > max_dist:
-            max_dist = dist
-            start_node = i
-
-    queue.append(start_node)
-    visited[start_node] = 1.
-    while queue:
-        current = nodes[queue.pop(0)]
-        for j in current.connections:
-            if visited[j] == 0.:
-                queue.append(j)
-                visited[j] = 1.
-                current_score += 1.
-                scores[j] = current_score + 0.
-    return scores
-
-
 def pyamg_solve(L, initial_guess=None):
     K=2
 
@@ -190,7 +154,7 @@ def get_Fiedler_vector_reordering(nodes):
 
     return resort_ranks, resort_ranks_normed
 
-def get_scrambled_reordering():
+def get_scrambled_reordering(nodes):
     resort_ranks = np.array([i for i in np.arange(len(nodes))])
     np.random.shuffle(resort_ranks)
 
@@ -203,10 +167,13 @@ args = sys.argv[1:]
 mode = None
 model_folder = None
 model_name = None
+rearrange_faces = False
 command = "Fiedler"
 for arg in args:
     if arg=="-help" or arg=="--help":
-        print("\ncommand line call for this program:\n\tpython3 main.py -name <model file name> -folder <path of folder of model> -command <command>\n")
+        print("\ncommand line call for this program:\n\tpython3 main.py -name <model file name> -folder <path of folder of model> -command <command>")
+        print("Can optionally include the -f tag to reorder the faces.")
+        print()
         print("Available commands:\n\tFiedler: reorder the vertices of the model by its Fiedler vector."+
               "\n\tsame: keep the order of the vertices of the model the same.\n\tscramble: randomly rearrange the vertices of the model.\n")
         exit(0)
@@ -225,6 +192,8 @@ for arg in args:
     elif mode=="command":
         command = arg
         mode = None
+    elif arg=="-f":
+        rearrange_faces = True
 
 if model_name==None:
     print("Need a model name")
@@ -242,7 +211,7 @@ print(command)
 if command=="Fiedler":
     resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
 elif command=="scramble":
-    resort_ranks, resort_ranks_normed = get_scrambled_reordering()
+    resort_ranks, resort_ranks_normed = get_scrambled_reordering(nodes)
 elif command=="same":
     resort_ranks = np.array([i for i in np.arange(len(nodes))])
     resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
@@ -252,9 +221,14 @@ model_file_handling.write_color_PLY_file(model_name[:-4]+".ply", nodes, face_dat
 model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
 
 model_name_to_check = model_name.lower()[-4:]
+face_rearrangement_code = 0
+if rearrange_faces:
+    face_rearrangement_code = 1
+    if command=="scramble":
+        face_rearrangement_code = 2
 if model_name_to_check == ".ply":
-    model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks)
+    model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks, face_rearrangement_code=face_rearrangement_code)
 elif model_name_to_check == ".veg":
-    model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info)
+    model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rearrangement_code=face_rearrangement_code)
 elif model_name_to_check == ".obj":
-    model_file_handling.write_reordered_OBJ_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info)
+    model_file_handling.write_reordered_OBJ_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rearrangement_code=face_rearrangement_code)
