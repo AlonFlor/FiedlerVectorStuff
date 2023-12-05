@@ -231,24 +231,12 @@ def write_color_PLY_file(model_name, nodes, face_data, rankings, contour=False):
     data_file.write(string_to_write)
     data_file.close()
 
-def reorder_faces(face_data, scramble=False):
-    if scramble:
-        face_resort_ranks = np.array([i for i in np.arange(len(face_data))])
-        np.random.shuffle(face_resort_ranks)
-    else:
-        face_scores = []
-        for face in face_data:
-            score = 0
-            for item in face:
-                score += item
-            face_scores.append(score)
-        face_scores = np.array(face_scores)
-
-        #give faces ranks
-        face_resort_indices = np.argsort(face_scores)
-        face_resort_ranks = np.zeros_like(face_scores)
-        face_resort_ranks[face_resort_indices] = np.arange(len(face_scores))
-        face_resort_ranks = face_resort_ranks.astype(int)
+def reorder_faces(face_data, face_resort_ranks, num_nodes):
+    # make sure faces are sorted in ascending order, by vertex indices in the faces
+    first_face_index = np.argmin(np.array(face_resort_ranks))
+    if face_data[first_face_index][0] > 0.5*num_nodes:
+        for i in np.arange(len(face_resort_ranks)):
+            face_resort_ranks[i] = len(face_resort_ranks) - 1 - face_resort_ranks[i]
 
     #resort faces based on ranks
     faces_ranks_dict = {}
@@ -261,7 +249,7 @@ def reorder_faces(face_data, scramble=False):
 
     return new_face_data
 
-def write_reordered_PLY_file(model_name, nodes, face_data, rankings, face_rearrangement_code=0):
+def write_reordered_PLY_file(model_name, nodes, face_data, rankings, face_rankings=None):
     '''write a reordered PLY file'''
 
     header = f"ply\nformat ascii 1.0\nelement vertex {len(nodes)}\nproperty float x\nproperty float y\nproperty float z\n" + \
@@ -283,10 +271,8 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, face_rearra
             face_data[i][j] = rankings[face_data[i][j]]
 
     # reorder faces
-    if face_rearrangement_code==1:
-        face_data = reorder_faces(face_data)
-    elif face_rearrangement_code==2:
-        face_data = reorder_faces(face_data, scramble=True)
+    if face_rankings is not None:
+        face_data = reorder_faces(face_data, face_rankings, len(nodes))
 
     # write faces
     face_data_str = ""
@@ -305,7 +291,7 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, face_rearra
     data_file.close()
 
 
-def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face_rearrangement_code=0):
+def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face_rankings=None):
     '''write a reordered VEG file'''
 
     vec_data_str = "\n*VERTICES\n"
@@ -325,10 +311,8 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face
             face_data[i][j] = rankings[face_data[i][j]]
 
     # reorder faces
-    if face_rearrangement_code==1:
-        face_data = reorder_faces(face_data)
-    elif face_rearrangement_code==2:
-        face_data = reorder_faces(face_data, scramble=True)
+    if face_rankings is not None:
+        face_data = reorder_faces(face_data, face_rankings, len(nodes))
 
     # write faces
     face_data_str = "\n*ELEMENTS\nTET\n"
@@ -351,7 +335,7 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face
     data_file.close()
 
 
-def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, face_rearrangement_code=0):
+def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, face_rankings=None):
     '''write a reordered VEG file'''
 
     vec_data_str = ""
@@ -370,10 +354,8 @@ def write_reordered_OBJ_file(model_name, nodes, face_data, rankings, other, face
             face_data[i][j] = rankings[face_data[i][j]]
 
     # reorder faces
-    if face_rearrangement_code==1:
-        face_data = reorder_faces(face_data)
-    elif face_rearrangement_code==2:
-        face_data = reorder_faces(face_data, scramble=True)
+    if face_rankings is not None:
+        face_data = reorder_faces(face_data, face_rankings, len(nodes))
 
     # write faces
     face_data_str = ""

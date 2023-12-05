@@ -96,8 +96,8 @@ def prune_to_make_fully_connected(nodes, face_data):
     return nodes, face_data
 
 
-def construct_Laplacian(nodes):
-    '''construct graph Laplacian'''
+def construct_Laplacian_for_nodes(nodes):
+    '''construct graph Laplacian for vertices'''
     N = len(nodes)
     L = sparse.lil_matrix((N,N), dtype=float)
     for i in np.arange(N):
@@ -105,13 +105,44 @@ def construct_Laplacian(nodes):
         node_sum = 0.
         #adjusted_location = node.location*np.array([0.9,1.,0.95])
         for j in node.connections:
-            neighbor = nodes[j]
+            #neighbor = nodes[j]
             #adjusted_neighbor_location = neighbor.location*np.array([0.9,1.,0.95])
             L[i,j] = -1.#/np.linalg.norm(node.location - neighbor.location)#(adjusted_location - adjusted_neighbor_location)#
             node_sum -= L[i,j]
         L[i,i] = node_sum
     return sparse.csr_matrix(L)
 
+def construct_Laplacian_for_faces(face_data, num_nodes):
+    '''construct graph Laplacian for faces'''
+    M = len(face_data)
+    L = sparse.lil_matrix((M,M), dtype=float)
+
+    #get connections between faces
+    face_groups = {}
+    for i in np.arange(num_nodes):
+        face_groups[i] = []
+    for i in np.arange(M):
+        face = face_data[i]
+        for node_index in face:
+            face_groups[node_index].append(i)
+    face_connections = {}
+    for i in np.arange(M):
+        face = face_data[i]
+        face_connections[i] = set()
+        for node_index in face:
+            neighbor_list = face_groups[node_index]
+            for neighbor in neighbor_list:
+                face_connections[i].add(neighbor)
+        face_connections[i].remove(i)
+
+    #build the Laplacian matrix
+    for i in np.arange(M):
+        face_sum = 0.
+        for j in face_connections[i]:
+            L[i,j] = -1.
+            face_sum -= L[i, j]
+        L[i, i] = face_sum
+    return sparse.csr_matrix(L)
 
 
 
@@ -135,11 +166,15 @@ def pyamg_solve(L, initial_guess=None):
 
     return sparse.linalg.lobpcg(L, X, M=M, tol=1e-8, largest=False, maxiter=400)
 
-def get_Fiedler_vector_reordering(nodes):
+def get_Fiedler_vector_reordering(data, num_nodes=None):
     # construct combinatorial Laplacian
-    L = construct_Laplacian(nodes)
     print()
-    print("extract Fiedler vector")
+    print("get Laplacian"+("" if num_nodes==None else " for faces"))
+    if num_nodes==None:
+        L = construct_Laplacian_for_nodes(data)
+    else:
+        L = construct_Laplacian_for_faces(data, num_nodes)
+    print("extract Fiedler vector"+("" if num_nodes==None else " for faces"))
     #extract Fiedler vector
     W, V = pyamg_solve(L)
     Fiedler_vector = V[:,1]
@@ -154,8 +189,8 @@ def get_Fiedler_vector_reordering(nodes):
 
     return resort_ranks, resort_ranks_normed
 
-def get_scrambled_reordering(nodes):
-    resort_ranks = np.array([i for i in np.arange(len(nodes))])
+def get_scrambled_reordering(data):
+    resort_ranks = np.array([i for i in np.arange(len(data))])
     np.random.shuffle(resort_ranks)
 
     resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
@@ -216,19 +251,22 @@ elif command=="same":
     resort_ranks = np.array([i for i in np.arange(len(nodes))])
     resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
 
+face_resort_ranks = None
+if rearrange_faces:
+    if command=="scramble":
+        face_resort_ranks, face_resort_ranks_normed = get_scrambled_reordering(face_data)
+    elif command=="Fiedler":
+        face_resort_ranks, face_resort_ranks_normed = get_Fiedler_vector_reordering(face_data, len(nodes))
+
+
 #print out data
 model_file_handling.write_color_PLY_file(model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
 model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
 
 model_name_to_check = model_name.lower()[-4:]
-face_rearrangement_code = 0
-if rearrange_faces:
-    face_rearrangement_code = 1
-    if command=="scramble":
-        face_rearrangement_code = 2
 if model_name_to_check == ".ply":
-    model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks, face_rearrangement_code=face_rearrangement_code)
+    model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks, face_rankings=face_resort_ranks)
 elif model_name_to_check == ".veg":
-    model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rearrangement_code=face_rearrangement_code)
+    model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
 elif model_name_to_check == ".obj":
-    model_file_handling.write_reordered_OBJ_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rearrangement_code=face_rearrangement_code)
+    model_file_handling.write_reordered_OBJ_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
