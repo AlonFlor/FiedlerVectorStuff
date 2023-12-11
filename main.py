@@ -198,12 +198,31 @@ def get_scrambled_reordering(data):
 
     return resort_ranks, resort_ranks_normed
 
+def get_partially_scrambled_reordering(data, chunk_size):
+    resort_chunk_ranks = np.array([i for i in np.arange(int(np.ceil(len(data) / chunk_size)))])
+    np.random.shuffle(resort_chunk_ranks)
+
+    resort_ranks = []
+    for i in np.arange(len(resort_chunk_ranks)):
+        for j in np.arange(chunk_size):
+            candidate = chunk_size * resort_chunk_ranks[i] + j
+            if candidate >= len(data):
+                break
+            resort_ranks.append(candidate)
+    resort_ranks = np.array(resort_ranks)
+
+    resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
+    resort_ranks = resort_ranks.astype(int)
+
+    return resort_ranks, resort_ranks_normed
+
 args = sys.argv[1:]
 mode = None
 model_folder = None
 model_name = None
 rearrange_faces = False
 command = "Fiedler"
+size_of_chunks = 1
 for arg in args:
     if arg=="-help" or arg=="--help":
         print("\ncommand line call for this program:\n\tpython3 main.py -name <model file name> -folder <path of folder of model> -command <command>")
@@ -211,6 +230,7 @@ for arg in args:
         print()
         print("Available commands:\n\tFiedler: reorder the vertices of the model by its Fiedler vector."+
               "\n\tsame: keep the order of the vertices of the model the same.\n\tscramble: randomly rearrange the vertices of the model.\n")
+        print("Can give a -chunk_size <size of chunks> flag, which only applies when command is set to scramble. It controls the chunk size of the scrambled shape.")
         exit(0)
     if arg=="-folder":
         mode = "folder"
@@ -218,6 +238,8 @@ for arg in args:
         mode = "name"
     elif arg=="-command":
         mode = "command"
+    elif arg=="-chunk_size":
+        mode = "chunks"
     elif mode=="folder":
         model_folder = arg
         mode = None
@@ -227,6 +249,9 @@ for arg in args:
     elif mode=="command":
         command = arg
         mode = None
+    elif mode=="chunks":
+        size_of_chunks = int(arg)
+        mode = None
     elif arg=="-f":
         rearrange_faces = True
 
@@ -235,7 +260,10 @@ if model_name==None:
     exit(1)
 if command != "Fiedler" and command != "scramble" and command !="same":
     print("Invalid command. Must be Fielder, scramble, or same. If left out, default is Fiedler.")
-
+    exit(1)
+if command == "scramble" and size_of_chunks <= 0:
+    print("Invalid size of chunks. Must be a positive integer.")
+    exit(1)
 
 nodes, face_data, extra_info = model_file_handling.extract_model(model_name, model_folder)       #extract the model from the file
 nodes, face_data = prune_to_make_fully_connected(nodes, face_data)
@@ -243,10 +271,17 @@ nodes, face_data = prune_to_make_fully_connected(nodes, face_data)
 resort_ranks = None
 resort_ranks_normed = None
 print(command)
+file_prefix = ""
 if command=="Fiedler":
     resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
+    file_prefix = "Fiedler_reordered_"
 elif command=="scramble":
-    resort_ranks, resort_ranks_normed = get_scrambled_reordering(nodes)
+    if size_of_chunks == 1:
+        resort_ranks, resort_ranks_normed = get_scrambled_reordering(nodes)
+        file_prefix = "scrambled_"
+    else:
+        resort_ranks, resort_ranks_normed = get_partially_scrambled_reordering(nodes, size_of_chunks)
+        file_prefix = f"scrambled_{size_of_chunks}_node_chunks_"
 elif command=="same":
     resort_ranks = np.array([i for i in np.arange(len(nodes))])
     resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
@@ -254,19 +289,23 @@ elif command=="same":
 face_resort_ranks = None
 if rearrange_faces:
     if command=="scramble":
-        face_resort_ranks, face_resort_ranks_normed = get_scrambled_reordering(face_data)
+        if size_of_chunks == 1:
+            face_resort_ranks, face_resort_ranks_normed = get_scrambled_reordering(face_data)
+        else:
+            face_resort_ranks, face_resort_ranks_normed = get_partially_scrambled_reordering(face_data, size_of_chunks)
     elif command=="Fiedler":
         face_resort_ranks, face_resort_ranks_normed = get_Fiedler_vector_reordering(face_data, len(nodes))
 
 
 #print out data
-model_file_handling.write_color_PLY_file(model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
+model_file_handling.write_color_PLY_file("color_gradient_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
 model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
 
 model_name_to_check = model_name.lower()[-4:]
+
 if model_name_to_check == ".ply":
-    model_file_handling.write_reordered_PLY_file("reordered_"+model_name, nodes, face_data, resort_ranks, face_rankings=face_resort_ranks)
+    model_file_handling.write_reordered_PLY_file(file_prefix+model_name, nodes, face_data, resort_ranks, face_rankings=face_resort_ranks)
 elif model_name_to_check == ".veg":
-    model_file_handling.write_reordered_VEG_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
+    model_file_handling.write_reordered_VEG_file(file_prefix+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
 elif model_name_to_check == ".obj":
-    model_file_handling.write_reordered_OBJ_file("reordered_"+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
+    model_file_handling.write_reordered_OBJ_file(file_prefix+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
