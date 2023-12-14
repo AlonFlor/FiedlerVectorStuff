@@ -189,6 +189,24 @@ def get_Fiedler_vector_reordering(data, num_nodes=None):
 
     return resort_ranks, resort_ranks_normed
 
+def get_deterministic_scrambling_reordering(data, region_size):
+    number_of_regions = int(np.ceil(len(data) / region_size))
+
+    resort_ranks = []
+    for i in np.arange(region_size):
+        for j in np.arange(number_of_regions):
+            new_rank = region_size*j + i
+            if new_rank < len(data):
+                resort_ranks.append(new_rank)
+            else:
+                break
+
+    resort_ranks = np.array(resort_ranks)
+    resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
+    resort_ranks = resort_ranks.astype(int)
+
+    return resort_ranks, resort_ranks_normed
+
 def get_scrambled_reordering(data):
     resort_ranks = np.array([i for i in np.arange(len(data))])
     np.random.shuffle(resort_ranks)
@@ -216,6 +234,8 @@ def get_partially_scrambled_reordering(data, chunk_size):
 
     return resort_ranks, resort_ranks_normed
 
+
+#start code execution here
 args = sys.argv[1:]
 mode = None
 model_folder = None
@@ -229,8 +249,10 @@ for arg in args:
         print("Can optionally include the -f tag to reorder the faces.")
         print()
         print("Available commands:\n\tFiedler: reorder the vertices of the model by its Fiedler vector."+
-              "\n\tsame: keep the order of the vertices of the model the same.\n\tscramble: randomly rearrange the vertices of the model.\n")
-        print("Can give a -chunk_size <size of chunks> flag, which only applies when command is set to scramble. It controls the chunk size of the scrambled shape.")
+              "\n\tsame: keep the order of the vertices of the model the same.\n\tscramble: randomly rearrange the vertices of the model."+
+              "\n\tdet_scramble: scramble the vertices in a deterministic manner.\n")
+        print("Can give a -chunk_size <size of chunks> flag, which only applies when command is set to scramble or det_scramble."+
+              "It controls the chunk size of the scrambled shape. Recommended for det_scramble to work, since the default value is 1.")
         exit(0)
     if arg=="-folder":
         mode = "folder"
@@ -258,10 +280,10 @@ for arg in args:
 if model_name==None:
     print("Need a model name")
     exit(1)
-if command != "Fiedler" and command != "scramble" and command !="same":
-    print("Invalid command. Must be Fielder, scramble, or same. If left out, default is Fiedler.")
+if command != "Fiedler" and command != "scramble" and command != "det_scramble" and command !="same":
+    print("Invalid command. Must be Fielder, scramble, det_scramble, or same. If left out, default is Fiedler.")
     exit(1)
-if command == "scramble" and size_of_chunks <= 0:
+if (command == "scramble" or command == "det_scramble") and size_of_chunks <= 0:
     print("Invalid size of chunks. Must be a positive integer.")
     exit(1)
 
@@ -270,7 +292,7 @@ nodes, face_data = prune_to_make_fully_connected(nodes, face_data)
 
 resort_ranks = None
 resort_ranks_normed = None
-print(command)
+print(command+("" if rearrange_faces is False else " + rearrange faces"))
 file_prefix = ""
 if command=="Fiedler":
     resort_ranks, resort_ranks_normed = get_Fiedler_vector_reordering(nodes)
@@ -282,17 +304,23 @@ elif command=="scramble":
     else:
         resort_ranks, resort_ranks_normed = get_partially_scrambled_reordering(nodes, size_of_chunks)
         file_prefix = f"scrambled_{size_of_chunks}_node_chunks_"
+elif command=="det_scramble":
+    resort_ranks, resort_ranks_normed = get_deterministic_scrambling_reordering(nodes, size_of_chunks)
+    file_prefix = f"det_scrambled_region_size_{size_of_chunks}_"
 elif command=="same":
     resort_ranks = np.array([i for i in np.arange(len(nodes))])
     resort_ranks_normed = resort_ranks / resort_ranks.shape[0]
 
 face_resort_ranks = None
 if rearrange_faces:
+    file_prefix = "vf_" + file_prefix
     if command=="scramble":
         if size_of_chunks == 1:
             face_resort_ranks, face_resort_ranks_normed = get_scrambled_reordering(face_data)
         else:
             face_resort_ranks, face_resort_ranks_normed = get_partially_scrambled_reordering(face_data, size_of_chunks)
+    if command=="det_scramble":
+        face_resort_ranks, face_resort_ranks_normed = get_deterministic_scrambling_reordering(face_data, size_of_chunks)
     elif command=="Fiedler":
         face_resort_ranks, face_resort_ranks_normed = get_Fiedler_vector_reordering(face_data, len(nodes))
 
