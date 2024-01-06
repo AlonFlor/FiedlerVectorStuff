@@ -326,14 +326,22 @@ if rearrange_faces:
 
 
 #print out data
-model_file_handling.write_color_PLY_file("color_gradient_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
-model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
+if("." not in model_name[-4:]):
+    #Dealing with .node and .ele files
+    model_file_handling.write_color_PLY_file("color_gradient_"+model_name+".ply", nodes, face_data, resort_ranks_normed)
+    model_file_handling.write_color_PLY_file("contour_"+model_name+".ply", nodes, face_data, resort_ranks_normed, contour=True)
+    model_file_handling.write_reordered_node_ele_files(file_prefix+model_name, nodes, face_data, resort_ranks, face_rankings=face_resort_ranks)
+else:
+    #print color gradient and contour
+    model_file_handling.write_color_PLY_file("color_gradient_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed)
+    model_file_handling.write_color_PLY_file("contour_"+model_name[:-4]+".ply", nodes, face_data, resort_ranks_normed, contour=True)
 
-model_name_to_check = model_name.lower()[-4:]
+    #print reordered model
+    model_name_to_check = model_name.lower()[-4:]
+    if model_name_to_check == ".ply":
+        model_file_handling.write_reordered_PLY_file(file_prefix+model_name, nodes, face_data, resort_ranks, face_rankings=face_resort_ranks)
+    elif model_name_to_check == ".veg":
+        model_file_handling.write_reordered_VEG_file(file_prefix+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
+    elif model_name_to_check == ".obj":
+        model_file_handling.write_reordered_OBJ_file(file_prefix+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
 
-if model_name_to_check == ".ply":
-    model_file_handling.write_reordered_PLY_file(file_prefix+model_name, nodes, face_data, resort_ranks, face_rankings=face_resort_ranks)
-elif model_name_to_check == ".veg":
-    model_file_handling.write_reordered_VEG_file(file_prefix+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)
-elif model_name_to_check == ".obj":
-    model_file_handling.write_reordered_OBJ_file(file_prefix+model_name, nodes, face_data, resort_ranks, extra_info, face_rankings=face_resort_ranks)

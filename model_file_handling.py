@@ -6,10 +6,27 @@ class Node:
         self.location = np.array(location)
         self.connections = []
 
-
+def read_node_ele_data_files(model_path):
+    model_data_node = []
+    print("getting " + model_path+".node")
+    print("getting " + model_path+".ele")
+    model_file = open(model_path+".node", "r")
+    for line in model_file:
+        model_data_node.append(line.strip().split(" "))
+    model_file.close()
+    model_data_ele = []
+    model_file = open(model_path+".ele", "r")
+    for line in model_file:
+        model_data_ele.append(line.strip().split(" "))
+    model_file.close()
+    return [model_data_node, model_data_ele]
 
 def read_data_file(model_path):
     '''read data file'''
+    if("." not in model_path[-4:]):
+        #dealing with .node and .ele files
+        return read_node_ele_data_files(model_path)
+    print("getting " + model_path)
     model_file = open(model_path, "r")
     model_data = []
     for line in model_file:
@@ -17,6 +34,73 @@ def read_data_file(model_path):
     model_file.close()
     return model_data
 
+
+def extract_model_node_ele(model_data):
+    nodes = []
+    tet_data = []
+    model_data_nodes, model_data_tets = model_data
+    
+    #handle nodes
+    for line in model_data_nodes[1:]:
+        if line[0].startswith("#"):
+            continue
+        numbers = []
+        for component in line:
+            try:
+                float(component)
+            except:
+                continue
+            numbers.append(float(component))
+        location = [float(numbers[1]),float(numbers[2]),float(numbers[3])]
+        nodes.append(Node(location))
+        
+    #handle tets
+    for line in model_data_tets[1:]:
+        if line[0].startswith("#"):
+            continue
+        numbers = []
+        for component in line:
+            try:
+                int(component)
+            except:
+                continue
+            numbers.append(int(component))
+        node1 = int(numbers[1])
+        node2 = int(numbers[2])
+        node3 = int(numbers[3])
+        node4 = int(numbers[4])
+        tet = [node1,node2,node3,node4]
+        tet_data.append(tet)
+        if node2 not in nodes[node1].connections:
+            nodes[node1].connections.append(node2)
+        if node3 not in nodes[node1].connections:
+            nodes[node1].connections.append(node3)
+        if node4 not in nodes[node1].connections:
+            nodes[node1].connections.append(node4)
+
+        if node1 not in nodes[node2].connections:
+            nodes[node2].connections.append(node1)
+        if node3 not in nodes[node2].connections:
+            nodes[node2].connections.append(node3)
+        if node4 not in nodes[node2].connections:
+            nodes[node2].connections.append(node4)
+
+        if node1 not in nodes[node3].connections:
+            nodes[node3].connections.append(node1)
+        if node2 not in nodes[node3].connections:
+            nodes[node3].connections.append(node2)
+        if node4 not in nodes[node3].connections:
+            nodes[node3].connections.append(node4)
+
+        if node1 not in nodes[node4].connections:
+            nodes[node4].connections.append(node1)
+        if node2 not in nodes[node4].connections:
+            nodes[node4].connections.append(node2)
+        if node3 not in nodes[node4].connections:
+            nodes[node4].connections.append(node3)
+    
+    return nodes, tet_data, None
+    
 
 def extract_model_PLY(model_data):
     nodes = []
@@ -100,7 +184,7 @@ def extract_model_OBJ(model_data):
 
 def extract_model_VEG(model_data):
     nodes = []
-    face_data = []
+    tet_data = []
     other = []
 
     mode = ""
@@ -150,11 +234,11 @@ def extract_model_VEG(model_data):
             node2 = int(line[2]) - 1
             node3 = int(line[3]) - 1
             node4 = int(line[4]) - 1
-            face_data.append([node1, node2, node3, node4])
-            #face_data.append([node1, node2, node3])
-            #face_data.append([node1, node2, node4])
-            #face_data.append([node2, node3, node4])
-            #face_data.append([node1, node3, node4])
+            tet_data.append([node1, node2, node3, node4])
+            #tet_data.append([node1, node2, node3])
+            #tet_data.append([node1, node2, node4])
+            #tet_data.append([node2, node3, node4])
+            #tet_data.append([node1, node3, node4])
             if node2 not in nodes[node1].connections:
                 nodes[node1].connections.append(node2)
             if node3 not in nodes[node1].connections:
@@ -183,7 +267,7 @@ def extract_model_VEG(model_data):
             if node3 not in nodes[node4].connections:
                 nodes[node4].connections.append(node3)
 
-    return nodes, face_data, other
+    return nodes, tet_data, other
 
 
 def extract_model(model_name, model_folder=None):
@@ -198,6 +282,8 @@ def extract_model(model_name, model_folder=None):
         return extract_model_OBJ(model_data)
     elif model_name_to_check.endswith(".veg"):
         return extract_model_VEG(model_data)
+    else:
+        return extract_model_node_ele(model_data)
 
 def write_color_PLY_file(model_name, nodes, face_data, rankings, contour=False):
     '''write a PLY file with colors'''
@@ -249,6 +335,41 @@ def reorder_faces(face_data, face_resort_ranks, num_nodes):
 
     return new_face_data
 
+def write_reordered_node_ele_files(model_name, nodes, tet_data, rankings, face_rankings=None):
+    '''write reordered .node and .ele files'''
+    
+    vec_data_str = f"{len(nodes)} 3 0 0\n"
+    # write nodes
+    nodes_ranks_dict = {}
+    for i in np.arange(len(nodes)):
+        nodes_ranks_dict[rankings[i]]=nodes[i]
+    for i in np.arange(len(nodes)):
+        node = nodes_ranks_dict[i]
+        vec_data_str += str(i) + " " + str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+    data_file = open(model_name+".node", "w")
+    data_file.write(vec_data_str)
+    data_file.close()
+
+    # change vertices in faces
+    for i in np.arange(len(tet_data)):
+        for j in np.arange(len(tet_data[i])):
+            tet_data[i][j] = rankings[tet_data[i][j]]
+
+    # reorder faces
+    if face_rankings is not None:
+        tet_data = reorder_faces(tet_data, face_rankings, len(nodes))
+
+    # write faces
+    tet_data_str = f"{len(tet_data)}"
+    #handle tetrahedral meshes
+    for i in np.arange(len(tet_data)):
+        tet = tet_data[i]
+        tet_data_str += str(i) + " " + str(tet[0]) + " " + str(tet[1]) + " " + str(tet[2]) + " " + str(tet[3]) + "\n"
+    
+    data_file = open(model_name+".ele", "w")
+    data_file.write(tet_data_str)
+    data_file.close()
+
 def write_reordered_PLY_file(model_name, nodes, face_data, rankings, face_rankings=None):
     '''write a reordered PLY file'''
 
@@ -291,7 +412,7 @@ def write_reordered_PLY_file(model_name, nodes, face_data, rankings, face_rankin
     data_file.close()
 
 
-def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face_rankings=None):
+def write_reordered_VEG_file(model_name, nodes, tet_data, rankings, other, face_rankings=None):
     '''write a reordered VEG file'''
 
     vec_data_str = "\n*VERTICES\n"
@@ -305,21 +426,21 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face
         node = nodes_ranks_dict[i]
         vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
 
-    # change vertices in faces
-    for i in np.arange(len(face_data)):
+    # change vertices in tetss
+    for i in np.arange(len(tet_data)):
         for j in np.arange(4):
-            face_data[i][j] = rankings[face_data[i][j]]
+            tet_data[i][j] = rankings[tet_data[i][j]]
 
     # reorder faces
     if face_rankings is not None:
-        face_data = reorder_faces(face_data, face_rankings, len(nodes))
+        tet_data = reorder_faces(tet_data, face_rankings, len(nodes))
 
     # write faces
-    face_data_str = "\n*ELEMENTS\nTET\n"
-    face_data_str += f"{len(face_data)} 4 0\n"
-    for i in np.arange(len(face_data)):
-        face = face_data[i]
-        face_data_str += str(i+1) + " " + str(face[0]+1) + " " + str(face[1]+1) + " " + str(face[2]+1) + " " + str(face[3]+1) + "\n"
+    tet_data_str = "\n*ELEMENTS\nTET\n"
+    tet_data_str += f"{len(tet_data)} 4 0\n"
+    for i in np.arange(len(tet_data)):
+        tet = tet_data[i]
+        tet_data_str += str(i+1) + " " + str(tet[0]+1) + " " + str(tet[1]+1) + " " + str(tet[2]+1) + " " + str(tet[3]+1) + "\n"
 
     other_str = "\n"
     for line in other:
@@ -328,7 +449,7 @@ def write_reordered_VEG_file(model_name, nodes, face_data, rankings, other, face
                 other_str += element + " "
         other_str += "\n"
 
-    string_to_write = vec_data_str + face_data_str + other_str
+    string_to_write = vec_data_str + tet_data_str + other_str
 
     data_file = open(model_name, "w")
     data_file.write(string_to_write)
