@@ -424,7 +424,7 @@ def write_reordered_VEG_file(model_name, nodes, tet_data, rankings, other, face_
         nodes_ranks_dict[rankings[i]]=nodes[i]
     for i in np.arange(len(nodes)):
         node = nodes_ranks_dict[i]
-        vec_data_str += str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
+        vec_data_str += str(i+1) + " " + str(node.location[0]) + " " + str(node.location[1]) + " " + str(node.location[2]) + "\n"
 
     # change vertices in tetss
     for i in np.arange(len(tet_data)):
