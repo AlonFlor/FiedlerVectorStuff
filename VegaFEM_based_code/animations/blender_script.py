@@ -3,25 +3,22 @@ import bpy
 import math
 import sys
 
-project_directory="/common/home/af656/Desktop/Fiedler_vector/possible_examples/VegaFEM_based_code/"
-object_models_directory=project_directory+"output/"
+project_directory="/data/local/af656/Fiedler_vector/possible_examples/VegaFEM_based_code/"
 
 def make_folder_if_not_exists(dir_name):
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
 
-#model_name = "scrambled_dragon"
-#constitutive_model_name = "corotationalLinear"
-
 args = sys.argv
+object_models_directory=project_directory+"output/"
 model_name = args[5]
 constitutive_model_name = args[6]
+scenario_name = args[7]
 
-model_attempt_number = 0
-animation_name = model_name + "_" + constitutive_model_name + "_" + str(model_attempt_number)
-output_dir = project_directory + "animations/"+animation_name+"/"
-make_folder_if_not_exists(output_dir)
-output_dir += "images/"
+animation_name = model_name + "_" + constitutive_model_name + "_" + scenario_name
+base_output_dir = project_directory + "animations/" + animation_name + "/"
+make_folder_if_not_exists(base_output_dir)
+output_dir = base_output_dir + "images/"
 make_folder_if_not_exists(output_dir)
 
 height_offset = 7.
@@ -62,7 +59,7 @@ while(True):
     bpy.ops.object.delete()
     
     i+=1
-    
-#bpy.data.scenes[0].frame_start = 0
-#bpy.data.scenes[0].frame_end = i-1
+
+#make video
+os.system(f"python3 make_video.py -folder {animation_name} -fps 24")
 
