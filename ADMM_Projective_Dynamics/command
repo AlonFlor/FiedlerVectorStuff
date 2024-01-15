@@ -1,0 +1,7 @@
+
+make ADMM_PD
+
+
+see command_script.sh for the commands to run.
+
+
