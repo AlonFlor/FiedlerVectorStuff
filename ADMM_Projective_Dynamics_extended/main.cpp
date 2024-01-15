@@ -18,27 +18,45 @@
 #include <chrono>
 
 
-int print_frame(std::string file_prefix, Eigen::MatrixXi render_faces, int num, Eigen::VectorXd x, FILE* fp){
+int print_frame(std::string file_prefix, Eigen::MatrixXi render_faces, std::vector<int> mesh_lengths, int num, Eigen::VectorXd x, FILE* fp){
     char file_path[100];
     sprintf(file_path, "output/%s_%04d.obj",file_prefix.data(), num);
     std::cout<<file_path<<std::endl;
     fp = fopen(file_path, "w");
 
-    //print vertices
+    int verts_mesh_lengths_index = 0;
+    int next_object_index = 0;
+    int faces_offset = 0;
+    int num_faces = render_faces.rows(); //faces per mesh
+
+    //print vertices and faces
     int x_len = x.rows();
-    fprintf(fp, "v ");
     for(int i=0; i<x_len; ++i){
-        fprintf(fp, "%f ",x[i]);
+        //print object labels
+        if(i == next_object_index){
+            std::string object_label = "o object_";
+            object_label += std::to_string(verts_mesh_lengths_index);
+            fprintf(fp, "%s\n", object_label.data());
+
+            //update number needed to reach before writing next object
+            next_object_index += 3*mesh_lengths[verts_mesh_lengths_index];
+            verts_mesh_lengths_index += 1;
+        }
+        //print vertices
+        if(i%3==0)fprintf(fp, "v ");
+        fprintf(fp, "%f",x[i]);
         if(i>0 && (i+1)%3==0){
             fprintf(fp, "\n");
-            if(i<x_len-1)fprintf(fp, "v ");
+        }else{
+            fprintf(fp, " ");
         }
-    }
-
-    //print faces
-    int num_faces = render_faces.rows();
-    for(int i=0; i<num_faces; ++i){
-        fprintf(fp, "f %d %d %d\n", render_faces(i,0), render_faces(i,1), render_faces(i,2));
+        //print faces
+        if(i+1 == next_object_index){
+            for(int j=0; j<num_faces; ++j){
+                fprintf(fp, "f %d %d %d\n", render_faces(j,0)+faces_offset, render_faces(j,1)+faces_offset, render_faces(j,2)+faces_offset);
+            }
+            faces_offset += mesh_lengths[verts_mesh_lengths_index];
+        }
     }
 
     fclose(fp);
@@ -82,90 +100,98 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
     output_file_prefix += "_" + scenario_name;
 
     std::cout<<"mesh name: "<<mesh_name<<std::endl;
-    std::cout<<"scenario name: "<<scenario_name<<std::endl;
     //TODO: load ply objects, discriminate between ply and node/ele files based on file extension.
     std::string mesh_path = "../models/";
     mesh_path += mesh_name;
 
     std::shared_ptr<admm::Solver> solver = std::make_shared<admm::Solver>();
     admm::Solver::Settings settings;
+    //settings.admm_iters = 30;
 
-    mcl::TetMesh::Ptr mesh1 = mcl::TetMesh::create();
-    mcl::meshio::load_elenode( mesh1.get(), mesh_path.data() );
-
-    //declare mesh constitutive model. TODO: if only doing one or a few scenarios with this, then no need to read constitutive model off of args
-    mesh1->flags |= binding::NOSELFCOLLISION | binding::NEOHOOKEAN;
-
-    //rescale object to be 0.07 m height
-    double min_y = 1000000.;
-    double max_y = -1000000.;
-    for(int i=0; i<mesh1->vertices.size(); ++i){
-        double candidate_y = mesh1->vertices[i][1];
-        if(candidate_y < min_y){
-            min_y = candidate_y;
-        }
-        if(candidate_y > max_y){
-            max_y = candidate_y;
-        }
+    //process scenarios
+    int number_of_meshes = 1;
+    if(!scenario_name.compare(0, scenario_name.size(), "falling_in_bowl")){
+        std::cout<<"scenario name: "<<scenario_name<<std::endl;
+        //add bowl
+        Eigen::Matrix<double,3,1> center;
+        center << 0.,-0.1,0.;
+        std::shared_ptr<admm::PassiveCollision> bowl = std::make_shared<admm::Bowl>( admm::Bowl(center, 0.089, 0.0935) );
+        solver->add_obstacle(bowl);
+        //set number of meshes to 12
+        number_of_meshes = 12;
+    }else if(!scenario_name.compare(0, scenario_name.size(), "bounce")){
+        std::cout<<"scenario name: "<<scenario_name.data()<<std::endl;
+        //do nothing
+    }else{
+        std::cout<<"scenario not available"<<std::endl;
+        exit(1);
     }
-    double object_height = max_y - min_y;
-    float scale_factor = 0.07f/object_height;
 
-    mcl::XForm<float> scale = mcl::xform::make_scale<float>(scale_factor,scale_factor,scale_factor);
-    mcl::XForm<float> rotate = mcl::xform::make_rot<float>(20.f,mcl::Vec3f(1,0,0));
-    mesh1->apply_xform(rotate*scale);
+    //load the meshes
+    std::vector<int> mesh_lengths;
+    for(int mesh_index=0; mesh_index<number_of_meshes; ++mesh_index){
+        mcl::TetMesh::Ptr mesh1 = mcl::TetMesh::create();
+        mcl::meshio::load_elenode( mesh1.get(), mesh_path.data() );
+        mesh_lengths.push_back(mesh1->vertices.size());
 
-    binding::add_tetmesh( solver.get(), mesh1, admm::Lame::soft_rubber(), settings.verbose );
-    std::shared_ptr<admm::PassiveCollision> floor_collider = std::make_shared<admm::Floor>( admm::Floor(0.f) );
+        //declare mesh constitutive model. If only doing one constitutive model, then no need to read constitutive model off of args
+        mesh1->flags |= binding::NOSELFCOLLISION | binding::LINEAR;//NEOHOOKEAN;//
+
+        //rescale object to be 0.07 m height
+        float min_y = 10000.;
+        float max_y = -10000.;
+        for(int i=0; i<mesh1->vertices.size(); ++i){
+            float candidate_y = mesh1->vertices[i][1];
+            if(candidate_y < min_y){
+                min_y = candidate_y;
+            }
+            if(candidate_y > max_y){
+                max_y = candidate_y;
+            }
+        }
+        float object_height = max_y - min_y;
+        float scale_factor = 0.07f/object_height;
+
+        float shape_move_number = 2*3.14159265*mesh_index / number_of_meshes;
+        mcl::XForm<float> scale = mcl::xform::make_scale<float>(scale_factor,scale_factor,scale_factor);
+        mcl::XForm<float> rotate = mcl::xform::make_rot<float>(30.f*mesh_index,mcl::Vec3f(mesh_index%3==0,(mesh_index+1)%3==0,(mesh_index+2)%3==0));
+
+        mesh1->apply_xform(rotate*scale);
+
+        //set translations
+        float x_trans = 0.07*sin(shape_move_number);
+        float y_trans = 0.2 + 0.15*shape_move_number;
+        float z_trans = 0.07*sin(1.5*shape_move_number);
+
+        //apply translations
+        for(int i=0; i<mesh1->vertices.size(); ++i){
+            mesh1->vertices[i][0] += x_trans;
+            mesh1->vertices[i][1] += y_trans;
+            mesh1->vertices[i][2] += z_trans;
+        }
+
+        binding::add_tetmesh( solver.get(), mesh1, admm::Lame::rubber(), settings.verbose );
+    }
+
+    //add floor
+    std::shared_ptr<admm::PassiveCollision> floor_collider = std::make_shared<admm::Floor>( admm::Floor(-0.2f) );
     solver->add_obstacle(floor_collider);
 
-    //mcl::TetMesh::Ptr bowl_mesh = mcl::TetMesh::create();
-    //mcl::meshio::load_elenode( bowl_mesh.get(), "glass_mixing_bowl" );
-    //std::shared_ptr<admm::PassiveCollision> bowl = std::make_shared<admm::PassiveMesh>( admm::PassiveMesh(bowl_mesh) );
-    Eigen::Matrix<double,3,1> center;
-    center << 0.,0.1,0.;
-    std::shared_ptr<admm::PassiveCollision> bowl = std::make_shared<admm::Bowl>( admm::Bowl(center, 0.089, 0.0935) );
-    solver->add_obstacle(bowl);
-
-    //TODO add other meshes and obstacles
 
     // Try to init the solver
     settings.linsolver = 1; // NodalMultiColorGS
     settings.gravity = -3.;//-9.8;//0;
     if( !solver->initialize(settings) ){ return EXIT_FAILURE; }
     
-    //get faces
+    //get render faces for the mesh
     Eigen::MatrixXi render_faces = get_render_faces(mesh_name);
-
-    //set the object according to the given scenario. Only falling_in_bowl is available right now.
-    if(!scenario_name.compare(0, scenario_name.size(), "falling_in_bowl")){
-        std::cout<<scenario_name.data()<<std::endl;
-    }else{
-        std::cout<<"scenario not available"<<std::endl;
-        exit(1);
-    }
-    //make the object be above the floor
-    min_y = 10000.;
-    for(int i=1; i<solver->m_x.size(); i+=3){
-        double candidate_min_y = solver->m_x[i];
-        if(candidate_min_y < min_y){
-            min_y = candidate_min_y;
-        }
-    }
-    double height = 0.3;
-    if(min_y < height){
-        double y_adjust = height - min_y;
-        for(int i=1; i<solver->m_x.size(); i+=3){
-            solver->m_x[i] += y_adjust;
-        }
-    }
     
     FILE* fp;
     double time_elapsed = 0.;
     
     for(int count = 0; count<number_of_time_steps; ++count){
         Eigen::VectorXd m_x = solver->m_x;
-        if(attempt_number==0)print_frame(output_file_prefix, render_faces, count, m_x, fp);
+        if(attempt_number==0)print_frame(output_file_prefix, render_faces, mesh_lengths, count, m_x, fp);
 
         //time start
         const auto start_time {std::chrono::steady_clock::now()};
@@ -182,7 +208,7 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
         std::cout<<"step "<<count<<"\t\tstep diff: "<<diff.norm()<<std::endl;//<<solver->m_x<<std::endl;
     }
     Eigen::VectorXd m_x = solver->m_x;
-    if(attempt_number==0)print_frame(output_file_prefix, render_faces, number_of_time_steps, m_x, fp);
+    if(attempt_number==0)print_frame(output_file_prefix, render_faces, mesh_lengths, number_of_time_steps, m_x, fp);
 
     return 0.;//time_elapsed;
 }

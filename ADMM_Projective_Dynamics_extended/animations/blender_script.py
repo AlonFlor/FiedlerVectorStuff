@@ -25,16 +25,12 @@ i=0
 while(True):
     str_i = str(i).zfill(4)
     print(i)
+    num_objects_start = len(list(bpy.context.scene.objects))
     try:
         bpy.context.scene.render.filepath = output_dir + str_i
         bpy.ops.import_scene.obj(filepath = object_models_directory+animation_name+"_"+str_i+".obj")#, axis_up='Y')
     except:
         break
-    #cannot use axis_up parameter, so doing that manually
-    object_name = bpy.context.scene.objects[list(bpy.context.scene.objects)[-1].name].name
-    current_shape = bpy.context.scene.objects[object_name]
-    current_shape.rotation_euler.x = math.pi/2
-    print(current_shape.rotation_euler)
 
     '''if i>0:
         current_shape.location=(1000.,1000.,1000.)
@@ -49,13 +45,10 @@ while(True):
     bpy.ops.render.render(write_still=True)
 
     #delete
-    bpy.ops.object.select_all(action='DESELECT')
-    for o in bpy.context.scene.objects:
-        if o.name == object_name:
-            o.select_set(True)
-        else:
-            o.select_set(False)
-    bpy.ops.object.delete()
+    while(len(bpy.context.scene.objects)> num_objects_start):
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.scene.objects[-1].select_set(True)
+        bpy.ops.object.delete()
     
     i+=1
     
