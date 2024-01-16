@@ -360,7 +360,7 @@ def write_reordered_node_ele_files(model_name, nodes, tet_data, rankings, face_r
         tet_data = reorder_faces(tet_data, face_rankings, len(nodes))
 
     # write faces
-    tet_data_str = f"{len(tet_data)}"
+    tet_data_str = f"{len(tet_data)} 4 0\n"
     #handle tetrahedral meshes
     for i in np.arange(len(tet_data)):
         tet = tet_data[i]
