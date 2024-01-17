@@ -363,9 +363,9 @@ double run_one_sim(std::string mesh_name, std::string constitutive_model, std::s
         mid_x /= num_elements;
         for(int i=0; i<system->m_x.size(); i+=3){
             if(system->m_x[i] < mid_x){
-                system->m_v[i] += -2.;
+                system->m_v[i] += -0.1;
             }else{
-                system->m_v[i] = 2.;
+                system->m_v[i] = 0.1;
             }
         }
     }/*else if(!scenario_name.compare(0, scenario_name.size(), "bounce")){
