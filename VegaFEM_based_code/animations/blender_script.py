@@ -21,7 +21,16 @@ make_folder_if_not_exists(base_output_dir)
 output_dir = base_output_dir + "images/"
 make_folder_if_not_exists(output_dir)
 
-height_offset = 7.
+#height_offset = 7.
+
+#create the material
+mat = bpy.data.materials.new(name="my_color")
+mat.use_nodes = True
+principled = mat.node_tree.nodes["Principled BSDF"]
+principled.inputs["Base Color"].default_value = (0., 1., 0., 1.)
+principled.inputs["Metallic"].default_value = 0.77
+mat.use_fake_user = True
+
 i=0
 while(True):
     str_i = str(i).zfill(4)
@@ -45,6 +54,15 @@ while(True):
     
     current_shape.location=(1000.,1000.,1000.)
     current_shape.keyframe_insert(data_path="location", frame=i+1)'''
+    
+    mat = bpy.data.materials.get("my_color")
+    # Assign matrial to object
+    if current_shape.data.materials:
+        # assign to 1st material slot
+        current_shape.data.materials[0] = mat
+    else:
+        # no slots
+        current_shape.data.materials.append(mat)
 
     #render    
     bpy.ops.render.render(write_still=True)
@@ -57,6 +75,7 @@ while(True):
         else:
             o.select_set(False)
     bpy.ops.object.delete()
+    bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
     
     i+=1
 
