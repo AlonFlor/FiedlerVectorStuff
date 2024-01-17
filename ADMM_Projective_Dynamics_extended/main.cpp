@@ -90,6 +90,50 @@ Eigen::MatrixXi get_render_faces(std::string mesh_name){
 }
 
 
+mcl::TetMesh::Ptr create_mesh(int mesh_index, float base_height, std::string mesh_path, int number_of_meshes){
+    mcl::TetMesh::Ptr mesh1 = mcl::TetMesh::create();
+    mcl::meshio::load_elenode( mesh1.get(), mesh_path.data() );
+
+    //declare mesh constitutive model. If only doing one constitutive model, then no need to read constitutive model off of args
+    mesh1->flags |= binding::NOSELFCOLLISION | binding::LINEAR;//NEOHOOKEAN;//
+
+    //rescale object to be 0.07 m height
+    float min_y = 10000.;
+    float max_y = -10000.;
+    for(int i=0; i<mesh1->vertices.size(); ++i){
+        float candidate_y = mesh1->vertices[i][1];
+        if(candidate_y < min_y){
+            min_y = candidate_y;
+        }
+        if(candidate_y > max_y){
+            max_y = candidate_y;
+        }
+    }
+    float object_height = max_y - min_y;
+    float scale_factor = 0.07f/object_height;
+
+    float shape_move_number = 2*3.14159265*mesh_index / number_of_meshes;
+    mcl::XForm<float> scale = mcl::xform::make_scale<float>(scale_factor,scale_factor,scale_factor);
+    mcl::XForm<float> rotate = mcl::xform::make_rot<float>(30.f*mesh_index,mcl::Vec3f(mesh_index%3==0,(mesh_index+1)%3==0,(mesh_index+2)%3==0));
+
+    mesh1->apply_xform(rotate*scale);
+
+    //set translations
+    float x_trans = 0.07*sin(shape_move_number);
+    float y_trans = base_height + 0.08*mesh_index;
+    float z_trans = 0.07*cos(1.5*shape_move_number);
+
+    //apply translations
+    for(int i=0; i<mesh1->vertices.size(); ++i){
+        mesh1->vertices[i][0] += x_trans;
+        mesh1->vertices[i][1] += y_trans;
+        mesh1->vertices[i][2] += z_trans;
+    }
+
+    return mesh1;
+}
+
+
 
 double run_one_sim(std::string mesh_name, std::string scenario_name, int number_of_time_steps, int attempt_number)
 {
@@ -106,10 +150,11 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
 
     std::shared_ptr<admm::Solver> solver = std::make_shared<admm::Solver>();
     admm::Solver::Settings settings;
-    //settings.admm_iters = 30;
 
     //process scenarios
     int number_of_meshes = 1;
+    float base_height = 0.f; //note: floor is at -0.2 m to prevent some stupid inverted tetrahedra error involving small numbers in lines 41-44 of TetEnergyTerm.cpp
+    admm::Lame stiffness_to_use;
     if(!scenario_name.compare(0, scenario_name.size(), "falling_in_bowl")){
         std::cout<<"scenario name: "<<scenario_name<<std::endl;
         //add bowl
@@ -117,11 +162,25 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
         center << 0.,-0.1,0.;
         std::shared_ptr<admm::PassiveCollision> bowl = std::make_shared<admm::Bowl>( admm::Bowl(center, 0.089, 0.0935) );
         solver->add_obstacle(bowl);
-        //set number of meshes to 12
-        number_of_meshes = 12;
+        //set number of meshes
+        number_of_meshes = 1;
+        //set the base height
+        base_height = 0.2f;
+        //alter the settings
+        settings.linsolver = 1; // NodalMultiColorGS //2;// UzawaCG
+        settings.gravity = -2.;
+        stiffness_to_use = admm::Lame::rubber();//admm::Lame(1000000,0.1);
+        //settings.admm_iters = 1000;
     }else if(!scenario_name.compare(0, scenario_name.size(), "bounce")){
         std::cout<<"scenario name: "<<scenario_name.data()<<std::endl;
-        //do nothing
+        //alter the settings
+        settings.linsolver = 1; // NodalMultiColorGS
+        settings.gravity = -3;
+        stiffness_to_use = admm::Lame::soft_rubber();
+        //set number of meshes
+        number_of_meshes = 1;
+        //set the base height
+        base_height = 0.f;
     }else{
         std::cout<<"scenario not available"<<std::endl;
         exit(1);
@@ -130,57 +189,16 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
     //load the meshes
     std::vector<int> mesh_lengths;
     for(int mesh_index=0; mesh_index<number_of_meshes; ++mesh_index){
-        mcl::TetMesh::Ptr mesh1 = mcl::TetMesh::create();
-        mcl::meshio::load_elenode( mesh1.get(), mesh_path.data() );
-        mesh_lengths.push_back(mesh1->vertices.size());
-
-        //declare mesh constitutive model. If only doing one constitutive model, then no need to read constitutive model off of args
-        mesh1->flags |= binding::NOSELFCOLLISION | binding::LINEAR;//NEOHOOKEAN;//
-
-        //rescale object to be 0.07 m height
-        float min_y = 10000.;
-        float max_y = -10000.;
-        for(int i=0; i<mesh1->vertices.size(); ++i){
-            float candidate_y = mesh1->vertices[i][1];
-            if(candidate_y < min_y){
-                min_y = candidate_y;
-            }
-            if(candidate_y > max_y){
-                max_y = candidate_y;
-            }
-        }
-        float object_height = max_y - min_y;
-        float scale_factor = 0.07f/object_height;
-
-        float shape_move_number = 2*3.14159265*mesh_index / number_of_meshes;
-        mcl::XForm<float> scale = mcl::xform::make_scale<float>(scale_factor,scale_factor,scale_factor);
-        mcl::XForm<float> rotate = mcl::xform::make_rot<float>(30.f*mesh_index,mcl::Vec3f(mesh_index%3==0,(mesh_index+1)%3==0,(mesh_index+2)%3==0));
-
-        mesh1->apply_xform(rotate*scale);
-
-        //set translations
-        float x_trans = 0.07*sin(shape_move_number);
-        float y_trans = 0.2 + 0.15*shape_move_number;
-        float z_trans = 0.07*sin(1.5*shape_move_number);
-
-        //apply translations
-        for(int i=0; i<mesh1->vertices.size(); ++i){
-            mesh1->vertices[i][0] += x_trans;
-            mesh1->vertices[i][1] += y_trans;
-            mesh1->vertices[i][2] += z_trans;
-        }
-
-        binding::add_tetmesh( solver.get(), mesh1, admm::Lame::rubber(), settings.verbose );
+        mcl::TetMesh::Ptr new_mesh = create_mesh(mesh_index, base_height, mesh_path, number_of_meshes);
+        mesh_lengths.push_back(new_mesh->vertices.size());
+        binding::add_tetmesh( solver.get(), new_mesh, stiffness_to_use, settings.verbose );
     }
 
     //add floor
     std::shared_ptr<admm::PassiveCollision> floor_collider = std::make_shared<admm::Floor>( admm::Floor(-0.2f) );
     solver->add_obstacle(floor_collider);
 
-
     // Try to init the solver
-    settings.linsolver = 1; // NodalMultiColorGS
-    settings.gravity = -3.;//-9.8;//0;
     if( !solver->initialize(settings) ){ return EXIT_FAILURE; }
     
     //get render faces for the mesh
