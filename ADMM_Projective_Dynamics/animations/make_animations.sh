@@ -14,9 +14,16 @@
 #blender -b generate_animations.blend -P blender_script.py Armadillo stvktet stretch
 #blender -b generate_animations.blend -P blender_script.py Armadillo lineartetstrain stretch
 #
-blender -b generate_animations.blend -P blender_script.py scrambled_dragon stvktet stretch
-#blender -b generate_animations.blend -P blender_script.py dragon stvktet stretch
-#blender -b generate_animations.blend -P blender_script.py Fiedler_reordered_dragon stvktet stretch
-#blender -b generate_animations.blend -P blender_script.py vf_Fiedler_reordered_dragon stvktet stretch
-#blender -b generate_animations.blend -P blender_script.py scrambled2_dragon stvktet stretch
-#blender -b generate_animations.blend -P blender_script.py scrambled3_dragon stvktet stretch
+blender -b generate_animations.blend -P blender_script.py scrambled_dragon spring stretch
+#blender -b generate_animations.blend -P blender_script.py dragon spring stretch
+#blender -b generate_animations.blend -P blender_script.py Fiedler_reordered_dragon spring stretch
+#blender -b generate_animations.blend -P blender_script.py vf_Fiedler_reordered_dragon spring stretch
+#blender -b generate_animations.blend -P blender_script.py scrambled2_dragon spring stretch
+#blender -b generate_animations.blend -P blender_script.py scrambled3_dragon spring stretch
+#
+blender -b generate_animations.blend -P blender_script.py scrambled_Armadillo spring stretch
+#blender -b generate_animations.blend -P blender_script.py Armadillo spring stretch
+#blender -b generate_animations.blend -P blender_script.py Fiedler_reordered_Armadillo spring stretch
+#blender -b generate_animations.blend -P blender_script.py vf_Fiedler_reordered_Armadillo spring stretch
+#blender -b generate_animations.blend -P blender_script.py scrambled2_Armadillo spring stretch
+#blender -b generate_animations.blend -P blender_script.py scrambled3_Armadillo spring stretch

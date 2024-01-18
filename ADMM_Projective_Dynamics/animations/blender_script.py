@@ -32,6 +32,12 @@ elif "Armadillo" in model_name:
     principled.inputs["Base Color"].default_value = (0.710, 0.396, 0.114, 1.)
 mat.use_fake_user = True
 
+#adjust camera
+if "Armadillo" in model_name:
+    obj_camera = bpy.data.objects["Camera"]
+    obj_camera.location[1] *= -1
+    obj_camera.rotation_euler[2] = 180.
+
 #height_offset = 7.
 i=0
 while(True):
