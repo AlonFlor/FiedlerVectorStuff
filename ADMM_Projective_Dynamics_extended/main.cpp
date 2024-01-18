@@ -155,6 +155,7 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
     int number_of_meshes = 1;
     float base_height = 0.f; //note: floor is at -0.2 m to prevent some stupid inverted tetrahedra error involving small numbers in lines 41-44 of TetEnergyTerm.cpp
     admm::Lame stiffness_to_use;
+    settings.admm_iters = 30;
     if(!scenario_name.compare(0, scenario_name.size(), "falling_in_bowl")){
         std::cout<<"scenario name: "<<scenario_name<<std::endl;
         //add bowl
@@ -170,7 +171,6 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
         settings.linsolver = 1; // NodalMultiColorGS //2;// UzawaCG
         settings.gravity = -2.;
         stiffness_to_use = admm::Lame::rubber();//admm::Lame(1000000,0.1);
-        //settings.admm_iters = 1000;
     }else if(!scenario_name.compare(0, scenario_name.size(), "bounce")){
         std::cout<<"scenario name: "<<scenario_name.data()<<std::endl;
         //alter the settings
@@ -228,7 +228,7 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
     Eigen::VectorXd m_x = solver->m_x;
     if(attempt_number==0)print_frame(output_file_prefix, render_faces, mesh_lengths, number_of_time_steps, m_x, fp);
 
-    return 0.;//time_elapsed;
+    return time_elapsed;
 }
 
 int main(int argc, char *argv[])
