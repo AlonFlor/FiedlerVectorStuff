@@ -25,7 +25,11 @@ make_folder_if_not_exists(output_dir)
 mat = bpy.data.materials.new(name="my_color")
 mat.use_nodes = True
 principled = mat.node_tree.nodes["Principled BSDF"]
-principled.inputs["Base Color"].default_value = (0.710, 0.396, 0.114, 1.) #Armadillo
+if "dragon" in model_name:
+    principled.inputs["Base Color"].default_value = (0., 1., 0., 1.)
+    principled.inputs["Metallic"].default_value = 0.77
+elif "Armadillo" in model_name:
+    principled.inputs["Base Color"].default_value = (0.710, 0.396, 0.114, 1.)
 mat.use_fake_user = True
 
 #height_offset = 7.
@@ -39,6 +43,11 @@ while(True):
         bpy.ops.import_scene.obj(filepath = object_models_directory+animation_name+"_"+str_i+".obj")#, axis_up='Y')
     except:
         break
+    
+    #single object
+    object_name = bpy.context.scene.objects[list(bpy.context.scene.objects)[-1].name].name
+    current_shape = bpy.context.scene.objects[object_name]
+    current_shape.rotation_euler.x = math.pi/2
 
     '''if i>0:
         current_shape.location=(1000.,1000.,1000.)
