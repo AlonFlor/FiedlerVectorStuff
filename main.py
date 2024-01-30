@@ -4,97 +4,6 @@ from scipy import sparse
 import sys
 import pyamg
 
-def bfs_traverse(nodes, start_node=None):
-    queue = []
-    visited = np.zeros((len(nodes)))
-    current_score = 0.
-
-    #get the start node furthest from the center
-    if start_node is None:
-        #find center of model
-        center_location = np.zeros((3))
-        for node in nodes:
-            center_location += node.location
-        center_location /= len(nodes)
-
-        #get the start node
-        start_node = 0
-        max_dist = 0.
-        for i in np.arange(len(nodes)):
-            node = nodes[i]
-            dist = np.linalg.norm(node.location - center_location)
-            if dist > max_dist:
-                max_dist = dist
-                start_node = i
-
-    queue.append(start_node)
-    visited[start_node] = 1.
-    while queue:
-        current = nodes[queue.pop(0)]
-        for j in current.connections:
-            if visited[j] == 0.:
-                queue.append(j)
-                visited[j] = 1.
-                current_score += 1.
-    return visited
-
-def prune_to_make_fully_connected(nodes, face_data):
-    '''remove disconnected regions and decrement all indices after them'''
-
-    print("removing disconnected regions and decrementing all indices after the indices of the removed nodes")
-    to_delete = []
-    decrement_stops = []
-    #get unconnected regions and the indices of their nodes
-    visited = bfs_traverse(nodes)
-    tries = 0
-    while np.sum(visited)<0.5*len(nodes):
-        #assume at least half of the graph is connected. If this fails after 100 tries, exit
-        if tries > 100:
-            print("Graph appears to be split in half or into lots of little pieces")
-            exit(1)
-        visited = bfs_traverse(nodes, np.random.randint(0,len(nodes)))
-        tries += 1
-    for i in np.arange(len(nodes)):
-        node = nodes[i]
-        if visited[i] == 0:
-            to_delete.append(node)
-            decrement_stops.append(i)
-    #get the altered indices by decrementing indices after the indices of nodes in unconnected regions
-    altered_indices = [i for i in np.arange(len(nodes))]
-    for i in np.arange(len(altered_indices)):
-        dec_num = 0
-        for j in decrement_stops:
-            if i>j:
-                dec_num +=1
-        altered_indices[i] -= dec_num
-    #put altered indices in nodes' connections
-    for node in nodes:
-        for i in np.arange(len(node.connections)):
-            node.connections[i] = altered_indices[node.connections[i]]
-    #mark faces to in isolated regions to delete
-    faces_to_delete = []
-    for i in np.arange(len(face_data)):
-        delete_this = False
-        for j in np.arange(len(face_data[i])):
-            if nodes[face_data[i][j]] in to_delete:
-                delete_this = True
-                break
-        if delete_this:
-            faces_to_delete.append(face_data[i])
-    #put altered indices in face data
-    for i in np.arange(len(face_data)):
-        for j in np.arange(len(face_data[i])):
-            face_data[i][j] = altered_indices[face_data[i][j]]
-    #delete unconnected nodes
-    for node in to_delete:
-        nodes.remove(node)
-    #delete faces
-    for face in faces_to_delete:
-        face_data.remove(face)
-    print(f"Done. Removed {len(to_delete)} nodes and {len(faces_to_delete)} faces.")
-
-    return nodes, face_data
-
 
 def construct_Laplacian_for_nodes(nodes):
     '''construct graph Laplacian for vertices'''
@@ -288,7 +197,7 @@ if (command == "scramble" or command == "det_scramble") and size_of_chunks <= 0:
     exit(1)
 
 nodes, face_data, extra_info = model_file_handling.extract_model(model_name, model_folder)       #extract the model from the file
-nodes, face_data = prune_to_make_fully_connected(nodes, face_data)
+nodes, face_data = model_file_handling.prune_to_make_fully_connected(nodes, face_data)
 
 resort_ranks = None
 resort_ranks_normed = None
