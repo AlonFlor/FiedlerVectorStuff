@@ -22,7 +22,7 @@ for arg in args:
         model_name = arg
         mode = None
 
-reordering_names = ["Fiedler_reordered_", "", "scrambled3_"]
+reordering_names = ["Fiedler_reordered_", "", "scrambled_"]
 #reordering_names = ["", "Fiedler_reordered_", "scrambled_","scrambled2_","scrambled3_"]
 colors = ["blue", "black", "red"]
 plt.rcParams.update({'font.size': 22})
