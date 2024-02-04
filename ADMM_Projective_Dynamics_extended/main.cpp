@@ -19,8 +19,8 @@
 
 
 int print_frame(std::string file_prefix, Eigen::MatrixXi render_faces, std::vector<int> mesh_lengths, int num, Eigen::VectorXd x, FILE* fp){
-    char file_path[100];
-    sprintf(file_path, "output/%s_%04d.obj",file_prefix.data(), num);
+    char file_path[300];
+    sprintf(file_path, "/data/local/af656/Fiedler_vector/possible_examples/ADMM_Projective_Dynamics_extended/output/%s_%04d.obj",file_prefix.data(), num);
     std::cout<<file_path<<std::endl;
     fp = fopen(file_path, "w");
 
@@ -138,8 +138,10 @@ mcl::TetMesh::Ptr create_mesh(int mesh_index, float base_height, std::string mes
 double run_one_sim(std::string mesh_name, std::string scenario_name, int number_of_time_steps, int attempt_number)
 {
     std::string output_file_prefix = mesh_name;
-    if(!mesh_name.compare(mesh_name.size()-4, mesh_name.size(), ".ply") || !mesh_name.compare(mesh_name.size()-4, mesh_name.size(), ".PLY")){
-        output_file_prefix = output_file_prefix.substr(0,output_file_prefix.size()-4);
+    if(mesh_name.size() >= 4){
+        if(!mesh_name.compare(mesh_name.size()-4, mesh_name.size(), ".ply") || !mesh_name.compare(mesh_name.size()-4, mesh_name.size(), ".PLY")){
+            output_file_prefix = output_file_prefix.substr(0,output_file_prefix.size()-4);
+        }
     }
     output_file_prefix += "_" + scenario_name;
 
@@ -155,7 +157,7 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
     int number_of_meshes = 1;
     float base_height = 0.f; //note: floor is at -0.2 m to prevent some stupid inverted tetrahedra error involving small numbers in lines 41-44 of TetEnergyTerm.cpp
     admm::Lame stiffness_to_use;
-    settings.admm_iters = 30;
+    settings.admm_iters = 100;
     if(!scenario_name.compare(0, scenario_name.size(), "falling_in_bowl")){
         std::cout<<"scenario name: "<<scenario_name<<std::endl;
         //add bowl
@@ -175,8 +177,8 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
         std::cout<<"scenario name: "<<scenario_name.data()<<std::endl;
         //alter the settings
         settings.linsolver = 1; // NodalMultiColorGS
-        settings.gravity = -3;
-        stiffness_to_use = admm::Lame::soft_rubber();
+        settings.gravity = -2.;
+        stiffness_to_use = admm::Lame::rubber();
         //set number of meshes
         number_of_meshes = 1;
         //set the base height
@@ -207,15 +209,29 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
     FILE* fp;
     double time_elapsed = 0.;
     
+    Eigen::VectorXd m_x = solver->m_x;
+    Eigen::VectorXd m_x_damped = m_x;
+    Eigen::VectorXd m_x_prev_3 = m_x;
+    Eigen::VectorXd m_x_prev_2 = m_x;
+    Eigen::VectorXd m_x_prev = m_x;
     for(int count = 0; count<number_of_time_steps; ++count){
-        Eigen::VectorXd m_x = solver->m_x;
-        if(attempt_number==0)print_frame(output_file_prefix, render_faces, mesh_lengths, count, m_x, fp);
-
+        m_x_prev_3 = m_x_prev_2;
+        m_x_prev_2 = m_x_prev;
+        m_x_prev = m_x;
+        m_x = solver->m_x;
+        m_x_damped = m_x;
+        if(attempt_number==0)print_frame(output_file_prefix, render_faces, mesh_lengths, count, m_x_damped, fp);
+        
         //time start
         const auto start_time {std::chrono::steady_clock::now()};
 
         //run time step
         solver->step();
+        
+        //damp the motion
+        for(int i=0; i<m_x.rows(); ++i){
+            m_x_damped[i] = 0.25*(m_x[i] + m_x_prev[i] + m_x_prev_2[i] + m_x_prev_3[i]);
+        }
         
         //time end
         const auto end_time {std::chrono::steady_clock::now()};
@@ -225,8 +241,7 @@ double run_one_sim(std::string mesh_name, std::string scenario_name, int number_
         Eigen::VectorXd diff = m_x - solver->m_x;
         std::cout<<"step "<<count<<"\t\tstep diff: "<<diff.norm()<<std::endl;//<<solver->m_x<<std::endl;
     }
-    Eigen::VectorXd m_x = solver->m_x;
-    if(attempt_number==0)print_frame(output_file_prefix, render_faces, mesh_lengths, number_of_time_steps, m_x, fp);
+    if(attempt_number==0)print_frame(output_file_prefix, render_faces, mesh_lengths, number_of_time_steps, m_x_damped, fp);
 
     return time_elapsed;
 }
@@ -265,13 +280,15 @@ int main(int argc, char *argv[])
             std_dev_time = sqrt(std_dev_time);
 
             //print timings
-            char file_path[70];
+            char file_path[300];
             std::string file_name = argv[i];
-            if(!file_name.compare(mesh_name.size()-4, mesh_name.size(), ".ply") || !file_name.compare(mesh_name.size()-4, mesh_name.size(), ".PLY")){
-                file_name = file_name.substr(0,file_name.size()-4);
+            if(mesh_name.size() >= 4){
+                if(!file_name.compare(mesh_name.size()-4, mesh_name.size(), ".ply") || !file_name.compare(mesh_name.size()-4, mesh_name.size(), ".PLY")){
+                    file_name = file_name.substr(0,file_name.size()-4);
+                }
             }
             file_name = file_name + "_" + scenario_name;
-            sprintf(file_path, "timings/%s_timings.txt", file_name.data());
+            sprintf(file_path, "/data/local/af656/Fiedler_vector/possible_examples/ADMM_Projective_Dynamics_extended/timings/%s_timings.txt", file_name.data());
             FILE* fp = fopen(file_path, "w");
             for(int j=0; j<num_times; ++j){
                 fprintf(fp, "%lf\n", timings[j]);
