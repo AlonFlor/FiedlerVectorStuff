@@ -7,8 +7,8 @@
 
 
 int print_frame(std::string file_prefix, std::string header, std::string suffix, int i, double* u_original, double* u, int r, FILE* fp){
-    char file_path[100];
-    sprintf(file_path, "output/%s_%04d.ply",file_prefix.data(), i);
+    char file_path[300];
+    sprintf(file_path, "/data/local/af656/Fiedler_vector/possible_examples/VegaFEM_based_code/output/%s_%04d.ply",file_prefix.data(), i);
     printf("%s\n",file_path);
     fp = fopen(file_path, "w");
     fprintf(fp, "%s", header.data());

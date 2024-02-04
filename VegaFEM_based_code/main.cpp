@@ -54,10 +54,10 @@ int main(int argc, char *argv[])
             std_dev_time = sqrt(std_dev_time);
 
             //print timings
-            char file_path[70];
+            char file_path[300];
             std::string file_name = argv[i];
             file_name = file_name.substr(0,file_name.size()-4) + "_" + scenario_name + "_" + constitutive_model;
-            sprintf(file_path, "timings/%s_timings.txt", file_name.data());
+            sprintf(file_path, "/data/local/af656/Fiedler_vector/possible_examples/VegaFEM_based_code/timings/%s_timings.txt", file_name.data());
             FILE* fp = fopen(file_path, "w");
             for(int j=0; j<num_times; ++j){
                 fprintf(fp, "%lf\n", timings[j]);
