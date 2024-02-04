@@ -17,8 +17,8 @@
 
 
 int print_frame(std::string file_prefix, Eigen::MatrixXi render_faces, int num, Eigen::VectorXd x, FILE* fp){
-    char file_path[100];
-    sprintf(file_path, "output/%s_%04d.obj",file_prefix.data(), num);
+    char file_path[250];
+    sprintf(file_path, "/data/local/af656/Fiedler_vector/possible_examples/ADMM_Projective_Dynamics/output/%s_%04d.obj",file_prefix.data(), num);
     std::cout<<file_path<<std::endl;
     fp = fopen(file_path, "w");
 
@@ -340,11 +340,13 @@ double run_one_sim(std::string mesh_name, std::string constitutive_model, std::s
         system->explicit_forces.push_back(ef);
     }
 
+    //set the number of admm_iters
+    system->settings.admm_iters = 20;
+    if(!scenario_name.compare(0, scenario_name.size(), "unsquash"))system->settings.admm_iters = 75;
 
     //initialize system
     double timestep_s = 0.04;
     system->settings.timestep_s = timestep_s;
-    system->settings.admm_iters = 20;
     std::cout<<"system->settings.admm_iters: "<<system->settings.admm_iters<<std::endl;
     if( !system->initialize() ){
         std::cout<<"failed to initialize"<<std::endl;
@@ -453,13 +455,13 @@ int main(int argc, char *argv[])
             std_dev_time = sqrt(std_dev_time);
 
             //print timings
-            char file_path[70];
+            char file_path[300];
             std::string file_name = argv[i];
             if(!file_name.compare(mesh_name.size()-4, mesh_name.size(), ".ply") || !file_name.compare(mesh_name.size()-4, mesh_name.size(), ".PLY")){
                 file_name = file_name.substr(0,file_name.size()-4);
             }
             file_name = file_name + "_" + scenario_name + "_" + constitutive_model;
-            sprintf(file_path, "timings/%s_timings.txt", file_name.data());
+            sprintf(file_path, "/data/local/af656/Fiedler_vector/possible_examples/ADMM_Projective_Dynamics/timings/%s_timings.txt", file_name.data());
             FILE* fp = fopen(file_path, "w");
             for(int j=0; j<num_times; ++j){
                 fprintf(fp, "%lf\n", timings[j]);
